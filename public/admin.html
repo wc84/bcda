@@ -5,83 +5,102 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>BCDA Admin</title>
 <meta name="robots" content="noindex">
-<meta name="theme-color" content="#323232">
+<meta name="theme-color" content="#084D29">
 <link rel="stylesheet" href="assets/theme.css">
 <style>
   .drop {
-    border: 2px dashed var(--main-color); border-radius: var(--radius);
+    border: 3px dashed var(--green); border-radius: var(--r);
     background: var(--sunk); padding: 26px 20px; text-align: center;
     cursor: pointer; display: flex; flex-direction: column; gap: 6px; align-items: center;
+    transition: background .15s, border-color .15s;
   }
-  .drop:focus-visible { outline: 3px solid var(--input-focus); outline-offset: 2px; }
-  .drop.over { border-style: solid; border-color: var(--input-focus); background: var(--bg-color); }
-  .drop .big { font-family: var(--display); font-weight: 700; font-size: 16px; }
-  .slots { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
-  .slot { border: 2px solid var(--hair); border-radius: var(--radius); padding: 11px 13px;
-    display: flex; flex-direction: column; gap: 3px; background: var(--bg-color); }
-  .slot.filled { border-color: var(--good); }
-  .slot .k { font-family: var(--display); font-size: 10.5px; font-weight: 700;
-    letter-spacing: .12em; text-transform: uppercase; color: var(--font-color-sub); }
-  .slot .f { font-size: 13.5px; word-break: break-all; }
-  .slot .f.none { color: var(--font-color-sub); }
+  .drop:hover { background: #E6D8B6; }
+  .drop:focus-visible { outline: 3px solid var(--orange); outline-offset: 2px; }
+  .drop.over { border-style: solid; border-color: var(--orange); background: var(--panel); }
+  .drop .big { font-family: var(--display); font-size: 17px; text-transform: uppercase;
+    letter-spacing: .01em; color: var(--forest); }
+
+  .slots { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 11px; }
+  .slot { border: 2px solid var(--line); border-radius: var(--r); padding: 10px 13px;
+    display: flex; flex-direction: column; gap: 2px; background: var(--panel); }
+  .slot.filled { border-color: var(--green); box-shadow: var(--hard-l); }
+  .slot .k { font-family: var(--type); font-size: 10px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--muted); }
+  .slot .f { font-size: 13.5px; word-break: break-all; font-weight: 600; }
+  .slot .f.none { color: var(--muted); font-weight: 400; }
+
   .warnlist { display: flex; flex-direction: column; gap: 6px; max-height: 210px; overflow-y: auto; }
-  .warnlist div { font-size: 13px; padding: 6px 9px; border-radius: 3px; background: var(--sunk);
-    border-left: 3px solid var(--warn); }
-  .warnlist div.info { border-left-color: var(--input-focus); }
+  .warnlist div { font-size: 13px; padding: 7px 10px; border-radius: 6px; background: #FBEDE8;
+    border-left: 4px solid var(--bad); }
+  .warnlist div.info { background: #E7F1E9; border-left-color: var(--green); }
+
   .stats { display: flex; gap: 22px; flex-wrap: wrap; }
   .stats div { display: flex; flex-direction: column; }
-  .stats .n { font-family: var(--display); font-size: 24px; font-weight: 800;
-    font-variant-numeric: tabular-nums; line-height: 1.1; }
-  .stats .l { font-size: 11px; letter-spacing: .1em; text-transform: uppercase;
-    color: var(--font-color-sub); font-family: var(--display); font-weight: 700; }
-  .delta { font-family: var(--display); font-weight: 700; }
-  .delta.up { color: var(--good); }
-  .delta.new { color: var(--input-focus); }
+  .stats .n { font-family: var(--display); font-size: 27px; line-height: 1.05;
+    font-variant-numeric: tabular-nums; color: var(--forest); }
+  .stats .l { font-family: var(--type); font-size: 10px; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--muted); }
+
+  .delta { font-family: var(--display); }
+  .delta.up { color: var(--green); }
+  .delta.new { color: var(--orange); }
+
   .histrow { display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
-    padding: 9px 0; border-bottom: 1px solid var(--hair); font-size: 13.5px; }
+    padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 13.5px; }
   .histrow:last-child { border-bottom: none; }
-  .maxh { max-height: 420px; overflow: auto; }
+  .maxh { max-height: 430px; overflow: auto; }
+  .step { font-family: var(--type); font-size: 11px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--orange); }
 </style>
 </head>
 <body>
 
-<!-- ------------------------------------------------------------- sign in -->
-<div class="shell narrow" id="gate">
-  <header class="masthead">
-    <div class="titles">
-      <p class="eyebrow">Broward County Darts Association</p>
-      <h1>Admin</h1>
+<header class="topbar">
+  <div class="in">
+    <div class="brand">
+      <svg class="board" viewBox="0 0 100 100" aria-hidden="true" fill="none"
+           stroke="currentColor" stroke-width="6">
+        <circle cx="50" cy="50" r="44"/><circle cx="50" cy="50" r="27"/>
+        <circle cx="50" cy="50" r="8" fill="currentColor"/>
+      </svg>
+      <div>
+        <div class="nm">BCDA Admin</div>
+        <div class="sub">Upload &amp; publish</div>
+      </div>
+      <div class="spacer"></div>
+      <div class="when" id="who"></div>
     </div>
-  </header>
+  </div>
+</header>
+
+<!-- ------------------------------------------------------------- sign in -->
+<div class="shell narrow" id="gate" style="padding-top:26px">
   <form class="card" id="gateForm">
+    <h2>Sign in</h2>
     <div class="field">
       <label for="passcode">Passcode</label>
       <input class="input" type="password" id="passcode" name="passcode"
-             autocomplete="current-password" placeholder="Enter the admin passcode" required>
+             autocomplete="current-password" placeholder="Admin passcode" required>
     </div>
     <div class="msg bad hide" id="gateMsg"></div>
-    <div class="row end"><button class="btn primary" type="submit" id="gateBtn">Sign in</button></div>
+    <div class="row end"><button class="btn go" type="submit" id="gateBtn">Sign in</button></div>
   </form>
   <p class="note">Sessions last 8 hours. <a href="scoreboard.html">View the public scoreboard</a></p>
 </div>
 
 <!-- ---------------------------------------------------------------- app -->
-<div class="shell hide" id="app">
+<div class="shell hide" id="app" style="padding-top:20px">
 
-  <header class="masthead">
-    <div class="titles">
-      <p class="eyebrow">Broward County Darts Association</p>
-      <h1>Admin</h1>
-    </div>
-    <div class="spacer"></div>
+  <div class="row end">
     <a class="btn" href="scoreboard.html">View scoreboard</a>
     <button class="btn" type="button" id="signOut">Sign out</button>
-  </header>
+  </div>
 
   <div class="card">
-    <h2>1 &middot; Which board is this?</h2>
+    <p class="step">Step 1</p>
+    <h2>Which board is this?</h2>
     <div class="row">
-      <div class="field grow" style="max-width:320px">
+      <div class="field grow" style="max-width:330px">
         <label for="season">Season</label>
         <input class="input" id="season" placeholder="Winter/Spring 2026" list="seasons">
         <datalist id="seasons"></datalist>
@@ -89,16 +108,18 @@
     </div>
     <div class="field">
       <label>League</label>
-      <div class="tabs" id="leagues" role="tablist"></div>
+      <div class="seg light" id="leagues" role="tablist" style="max-width:380px"></div>
     </div>
   </div>
 
   <div class="card">
-    <h2>2 &middot; Drop the two exports</h2>
+    <p class="step">Step 2</p>
+    <h2>Drop the two exports</h2>
     <div class="drop" id="drop" tabindex="0" role="button"
          aria-label="Drop CSV files here or press Enter to browse">
       <span class="big">Drop the cricket and &rsquo;01 CSVs here</span>
-      <span class="note">Either order &mdash; each file is identified by its own columns. Or click to browse.</span>
+      <span class="note">Either order &mdash; each file is identified by its own columns.
+        Or click to browse.</span>
       <input type="file" id="file" accept=".csv,text/csv" multiple class="hide">
     </div>
     <div class="slots">
@@ -112,13 +133,14 @@
     <div class="msg bad hide" id="dropMsg"></div>
     <div class="row end">
       <button class="btn" type="button" id="clearBtn">Clear</button>
-      <button class="btn primary" type="button" id="processBtn" disabled>Process</button>
+      <button class="btn go" type="button" id="processBtn" disabled>Process</button>
     </div>
   </div>
 
   <div class="card hide" id="previewCard">
+    <p class="step">Step 3</p>
     <div class="row">
-      <h2 class="grow">3 &middot; Check it, then publish</h2>
+      <h2 class="grow">Check it, then publish</h2>
       <span class="badge quiet" id="modeBadge"></span>
     </div>
     <div class="stats" id="stats"></div>
@@ -134,9 +156,11 @@
 
   <div class="card hide" id="rosterCard">
     <h2>Roster fixes</h2>
-    <p class="note">For what the export cannot tell us. Saved separately, so a re-upload never wipes them.</p>
+    <p class="note">For what the export cannot tell us. Saved separately, so a re-upload never
+      wipes them.</p>
     <div class="tablewrap maxh">
-      <table><thead><tr><th class="text">Player</th><th class="text">Gender</th><th class="text">Team</th></tr></thead>
+      <table><thead><tr><th class="text">Player</th><th class="text">Gender</th>
+        <th class="text">Team</th></tr></thead>
       <tbody id="rosterRows"></tbody></table>
     </div>
     <div class="msg good hide" id="rosterMsg"></div>

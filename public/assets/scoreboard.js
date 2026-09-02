@@ -1,7 +1,5 @@
 import { computeRecords, defaultOrder } from './engine.mjs';
 
-/* ------------------------------------------------------------------ setup */
-
 const $ = (id) => document.getElementById(id);
 const el = (tag, cls, text) => {
   const n = document.createElement(tag);
@@ -9,40 +7,54 @@ const el = (tag, cls, text) => {
   if (text != null) n.textContent = text;
   return n;
 };
+const show = (node, on) => node.classList.toggle('hide', !on);
+
+/* ------------------------------------------------------------------ model */
 
 const COLUMNS = [
-  { key: 'name', label: 'Player', type: 'text', pin: true },
-  { key: 'team', label: 'Team', type: 'text', optional: 'team' },
-  { key: 'division', label: 'Div', type: 'text', optional: 'division' },
-  { key: 'm6', label: '6M', group: true },
-  { key: 'm7', label: '7M' },
-  { key: 'm8', label: '8M' },
-  { key: 'm9', label: '9M' },
-  { key: 'b3', label: '3B' },
-  { key: 'b4', label: '4B' },
-  { key: 'b5', label: '5B' },
-  { key: 'b6', label: '6B' },
-  { key: 'mpr', label: 'MPR', dec: 2, dim: true },
-  { key: 'hdi', label: 'HDI', group: true },
-  { key: 'hdo', label: 'HDO' },
-  { key: 'b100_139', label: '100-139' },
-  { key: 'b140_179', label: '140-179' },
-  { key: 'b180', label: '180' },
-  { key: 'tda', label: '3DA', dec: 2, dim: true },
-  { key: 'cricketAS', label: 'Cricket AS', cls: 'as', group: true },
-  { key: 'x01AS', label: "'01 AS", cls: 'as' },
-  { key: 'totalAS', label: 'Total AS', cls: 'total', th: 'total' },
+  { key: 'name',      label: 'Player',   type: 'text', pin: true, group: 'id' },
+  { key: 'team',      label: 'Team',     type: 'text', optional: 'team', group: 'id' },
+  { key: 'division',  label: 'Div',      type: 'text', optional: 'division', group: 'id' },
+  { key: 'm6',        label: '6M',       group: 'cricket', edge: true },
+  { key: 'm7',        label: '7M',       group: 'cricket' },
+  { key: 'm8',        label: '8M',       group: 'cricket' },
+  { key: 'm9',        label: '9M',       group: 'cricket' },
+  { key: 'b3',        label: '3B',       group: 'cricket' },
+  { key: 'b4',        label: '4B',       group: 'cricket' },
+  { key: 'b5',        label: '5B',       group: 'cricket' },
+  { key: 'b6',        label: '6B',       group: 'cricket' },
+  { key: 'mpr',       label: 'MPR',      group: 'cricket', dec: 2, dim: true, keep: true },
+  { key: 'hdi',       label: 'HDI',      group: 'x01', edge: true, keep: true },
+  { key: 'hdo',       label: 'HDO',      group: 'x01', keep: true },
+  { key: 'b100_139',  label: '100-139',  group: 'x01' },
+  { key: 'b140_179',  label: '140-179',  group: 'x01' },
+  { key: 'b180',      label: '180',      group: 'x01' },
+  { key: 'tda',       label: '3DA',      group: 'x01', dec: 2, dim: true, keep: true },
+  { key: 'cricketAS', label: 'Cricket',  group: 'totals', cls: 'as', edge: true, keep: true },
+  { key: 'x01AS',     label: "'01",      group: 'totals', cls: 'as', keep: true },
+  { key: 'totalAS',   label: 'Total AS', group: 'totals', cls: 'total', th: 'total', keep: true },
 ];
 
+const SORTS = [
+  ['totalAS', 'Total AS'], ['cricketAS', 'Cricket'], ['x01AS', "'01"],
+  ['mpr', 'MPR'], ['tda', '3DA'], ['b180', '180s'], ['hdo', 'High out'], ['name', 'A-Z'],
+];
+
+const GROUP_TABS = [['totals', 'Totals'], ['cricket', 'Cricket'], ['x01', "'01"]];
+
+const NARROW = window.matchMedia('(max-width: 760px)');
+
 const state = {
-  index: [],
-  board: null,
-  season: null,
-  league: null,
-  division: 'ALL',
-  sort: null,      // null = the sheet's own order
-  dir: 'desc',
+  index: [], board: null,
+  season: null, league: null, division: 'ALL',
+  view: 'cards', group: 'totals',
+  sort: null, dir: 'desc',
 };
+
+try {
+  const saved = localStorage.getItem('bcda.view');
+  if (saved === 'cards' || saved === 'table') state.view = saved;
+} catch { /* private mode */ }
 
 /* -------------------------------------------------------------- deep links */
 
@@ -51,6 +63,7 @@ function readHash() {
   if (p.get('season')) state.season = p.get('season');
   if (p.get('league')) state.league = p.get('league');
   if (p.get('div')) state.division = p.get('div');
+  if (p.get('view') === 'cards' || p.get('view') === 'table') state.view = p.get('view');
   if (p.get('sort')) state.sort = p.get('sort');
   if (p.get('dir')) state.dir = p.get('dir') === 'asc' ? 'asc' : 'desc';
 }
@@ -60,14 +73,15 @@ function writeHash() {
   if (state.season) p.set('season', state.season);
   if (state.league) p.set('league', state.league);
   if (state.division !== 'ALL') p.set('div', state.division);
+  p.set('view', state.view);
   if (state.sort) { p.set('sort', state.sort); p.set('dir', state.dir); }
   history.replaceState(null, '', `#${p}`);
 }
 
-/* -------------------------------------------------------------- rendering */
+/* ------------------------------------------------------------------ chrome */
 
-function tabButton(label, selected, onClick) {
-  const b = el('button', 'tab', label);
+function tab(label, selected, onClick, cls = 'tab') {
+  const b = el('button', cls, label);
   b.type = 'button';
   b.setAttribute('role', 'tab');
   b.setAttribute('aria-selected', String(selected));
@@ -75,48 +89,61 @@ function tabButton(label, selected, onClick) {
   return b;
 }
 
-function renderControls() {
+function renderChrome() {
   const seasons = [...new Set(state.index.map((e) => e.seasonSlug))]
     .map((slug) => state.index.find((e) => e.seasonSlug === slug));
 
-  const sel = $('season');
-  sel.replaceChildren();
-  for (const entry of seasons) {
-    const o = el('option', null, entry.season);
-    o.value = entry.seasonSlug;
-    o.selected = entry.seasonSlug === state.season;
-    sel.append(o);
-  }
-  sel.parentElement.classList.toggle('hide', seasons.length < 2);
-  sel.onchange = () => { state.season = sel.value; state.league = null; load(); };
+  $('season').textContent = state.board
+    ? state.board.season
+    : 'Broward County Darts Association';
 
-  const leagues = state.index.filter((e) => e.seasonSlug === state.season).map((e) => e.league);
+  if (state.board) {
+    const d = new Date(state.board.updatedAt);
+    $('when').textContent = `Updated ${d.toLocaleDateString(undefined,
+      { month: 'short', day: 'numeric' })}`;
+  }
+
   const lt = $('leagues');
   lt.replaceChildren();
+  const have = state.index.filter((e) => e.seasonSlug === state.season).map((e) => e.league);
   for (const lg of ['Singles', 'Doubles', 'Teams']) {
-    if (!leagues.includes(lg)) continue;
-    lt.append(tabButton(lg, lg === state.league, () => { state.league = lg; state.division = 'ALL'; load(); }));
+    const b = tab(lg, lg === state.league, () => {
+      if (!have.includes(lg)) return;
+      state.league = lg; state.division = 'ALL'; load();
+    }, '');
+    if (!have.includes(lg)) { b.disabled = true; b.title = `No ${lg} board published yet`; b.style.opacity = '.4'; }
+    lt.append(b);
   }
 
   const divs = state.board ? state.board.meta.divisions : [];
   const dt = $('divisions');
   dt.replaceChildren();
-  dt.classList.toggle('hide', divs.length < 2);
+  show(dt, divs.length >= 2 || seasons.length >= 2);
   if (divs.length >= 2) {
-    dt.append(tabButton('All divisions', state.division === 'ALL', () => { state.division = 'ALL'; render(); }));
+    dt.append(tab('All divisions', state.division === 'ALL',
+      () => { state.division = 'ALL'; render(); }, ''));
     for (const d of divs) {
-      dt.append(tabButton(`${d} Division`, state.division === d, () => { state.division = d; render(); }));
+      dt.append(tab(`${d} Division`, state.division === d,
+        () => { state.division = d; render(); }, ''));
     }
   }
+  for (const entry of seasons) {
+    if (seasons.length < 2) break;
+    dt.append(tab(entry.season, entry.seasonSlug === state.season, () => {
+      state.season = entry.seasonSlug; state.league = null; load();
+    }, ''));
+  }
 }
+
+/* ------------------------------------------------------- chalkboard tiles */
 
 const ICON_IN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h11"/><path d="M10 7l5 5-5 5"/><circle cx="19.5" cy="12" r="2.5"/></svg>';
 const ICON_OUT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="4.5" cy="12" r="2.5"/><path d="M9 12h11"/><path d="M15 7l5 5-5 5"/></svg>';
 
 function renderTiles(players) {
   const rec = computeRecords(players);
-  const tiles = $('tiles');
-  tiles.replaceChildren();
+  const box = $('tiles');
+  box.replaceChildren();
 
   const spec = [
     ['women', 'F', 'in', "Women's High In", ICON_IN],
@@ -128,30 +155,17 @@ function renderTiles(players) {
   for (const [cls, gender, kind, label, icon] of spec) {
     const hit = rec[gender] && rec[gender][kind];
     const tile = el('div', `tile ${cls}${hit ? '' : ' empty'}`);
-    const lab = el('span', 'lab');
-    lab.innerHTML = `${icon}<span>${label}</span>`;
-    tile.append(lab, el('span', 'val', hit ? String(hit.value) : '—'));
-    const who = el('span', 'who');
-    if (hit) {
-      who.append(el('b', null, hit.name));
-      if (hit.team) who.append(document.createTextNode(` · ${hit.team}`));
-    } else {
-      who.textContent = 'Not recorded yet';
-    }
-    tile.append(who);
-    tiles.append(tile);
+    const lab = el('span', 'l');
+    lab.innerHTML = `${icon}<span></span>`;
+    lab.lastElementChild.textContent = label;
+    tile.append(lab, el('span', 'v', hit ? String(hit.value) : '—'));
+    tile.append(el('span', 'w', hit ? (hit.team ? `${hit.name} · ${hit.team}` : hit.name)
+                                   : 'not thrown yet'));
+    box.append(tile);
   }
 }
 
-function visibleColumns(players) {
-  const anyTeam = players.some((p) => p.team);
-  const manyDivs = new Set(players.map((p) => p.division)).size > 1;
-  return COLUMNS.filter((c) => {
-    if (c.optional === 'team') return anyTeam;
-    if (c.optional === 'division') return manyDivs;
-    return true;
-  });
-}
+/* ----------------------------------------------------------------- sorting */
 
 function sortPlayers(players) {
   if (!state.sort) return [...players].sort(defaultOrder);
@@ -163,7 +177,6 @@ function sortPlayers(players) {
     if (col && col.type === 'text') {
       return String(x ?? '').localeCompare(String(y ?? '')) * dir || a.last.localeCompare(b.last);
     }
-    // Blanks always sink, whichever way the column is sorted.
     const xa = typeof x === 'number' ? x : null;
     const ya = typeof y === 'number' ? y : null;
     if (xa === null && ya === null) return a.last.localeCompare(b.last);
@@ -173,13 +186,141 @@ function sortPlayers(players) {
   });
 }
 
+/** Columns worth showing: drops all-zero stat columns and unused text columns. */
+function visibleColumns(players) {
+  return COLUMNS.filter((c) => {
+    if (c.optional === 'team') return players.some((p) => p.team);
+    if (c.optional === 'division') return new Set(players.map((p) => p.division)).size > 1;
+    if (c.type === 'text' || c.keep) return true;
+    return players.some((p) => typeof p[c.key] === 'number' && p[c.key] !== 0);
+  });
+}
+
+/* ------------------------------------------------------------- cards view */
+
+const num = (v, dec) => (v === null || v === undefined || v === ''
+  ? '—' : (typeof v === 'number' && dec ? v.toFixed(dec) : String(v)));
+
+function renderChips() {
+  const box = $('chips');
+  box.replaceChildren();
+  for (const [key, label] of SORTS) {
+    const active = state.sort === key || (!state.sort && key === 'totalAS');
+    const b = el('button', null, label);
+    b.type = 'button';
+    b.setAttribute('aria-pressed', String(active));
+    b.addEventListener('click', () => {
+      // Total AS is the sheet's own order, which also keeps the women / men blocks.
+      state.sort = key === 'totalAS' ? null : key;
+      state.dir = key === 'name' ? 'asc' : 'desc';
+      render();
+    });
+    box.append(b);
+  }
+}
+
+function renderCards(players) {
+  const box = $('cards');
+  box.replaceChildren();
+  const sorted = sortPlayers(players);
+  const grouped = !state.sort;   // sheet order keeps the women / men blocks
+
+  let seen = null;
+  let rank = 0;
+  for (const p of sorted) {
+    if (grouped && p.gender !== seen) {
+      seen = p.gender;
+      rank = 0;
+      const h = el('div', 'mlab');
+      h.style.gridColumn = '1 / -1';
+      h.style.margin = '6px 0 0';
+      h.textContent = p.gender === 'F' ? 'Women' : p.gender === 'M' ? 'Men' : 'Gender not recorded';
+      box.append(h);
+    }
+    rank += 1;
+
+    const card = el('div', `pc${rank <= 3 ? ` g${rank}` : ''}`);
+    card.tabIndex = 0;
+    card.setAttribute('role', 'button');
+    card.setAttribute('aria-expanded', 'false');
+
+    const top = el('div', 'top');
+    top.append(el('div', 'rank', String(rank)));
+    const who = el('div', 'who');
+    who.append(el('div', 'n', p.name));
+    who.append(el('div', 'm', [p.team || null, p.division ? `${p.division} Div` : null]
+      .filter(Boolean).join(' · ') || '—'));
+    top.append(who);
+    const tot = el('div', 'tot');
+    tot.append(el('div', 'v', String(p.totalAS)));
+    tot.append(el('div', 'l', 'Total AS'));
+    top.append(tot);
+    card.append(top);
+
+    const strip = el('div', 'strip');
+    for (const [k, v] of [['Cricket', p.cricketAS], ["'01", p.x01AS],
+                          ['MPR', num(p.mpr, 2)], ['3DA', num(p.tda, 2)]]) {
+      const d = el('div');
+      d.append(el('span', 'k', k), el('span', 'sv', String(v)));
+      strip.append(d);
+    }
+    card.append(strip);
+
+    const more = el('div', 'more');
+    const block = (label, pairs) => {
+      more.append(el('div', 'mlab', label));
+      const g = el('div', 'mgrid');
+      for (const [lbl, val] of pairs) {
+        const s = el('span');
+        s.append(el('b', null, String(val)), el('i', null, lbl));
+        g.append(s);
+      }
+      more.append(g);
+    };
+    block('Cricket marks & corks', [['6M', p.m6], ['7M', p.m7], ['8M', p.m8], ['9M', p.m9],
+      ['3B', p.b3], ['4B', p.b4], ['5B', p.b5], ['6B', p.b6]]);
+    block("'01 scoring", [['100-139', p.b100_139], ['140-179', p.b140_179], ['180', p.b180],
+      ['High in', num(p.hdi)], ['High out', num(p.hdo)], ['3DA', num(p.tda, 2)],
+      ['Cricket AS', p.cricketAS], ["'01 AS", p.x01AS]]);
+    card.append(more);
+
+    const toggle = () => {
+      card.classList.toggle('open');
+      card.setAttribute('aria-expanded', String(card.classList.contains('open')));
+    };
+    card.addEventListener('click', toggle);
+    card.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); }
+    });
+    box.append(card);
+  }
+}
+
+/* ------------------------------------------------------------- table view */
+
+function renderGroupTabs() {
+  const box = $('gtabs');
+  box.replaceChildren();
+  for (const [key, label] of GROUP_TABS) {
+    const b = el('button', null, label);
+    b.type = 'button';
+    b.setAttribute('aria-pressed', String(state.group === key));
+    b.addEventListener('click', () => { state.group = key; render(); });
+    box.append(b);
+  }
+}
+
 function renderTable(players) {
-  const cols = visibleColumns(players);
+  let cols = visibleColumns(players);
+  if (NARROW.matches) cols = cols.filter((c) => c.group === 'id' || c.group === state.group);
+
   const head = $('head');
   head.replaceChildren();
+  head.append(el('th', 'r', '#'));
 
   for (const c of cols) {
-    const th = el('th', [c.pin ? 'pin' : '', c.type === 'text' ? 'text' : '', c.th || '', c.group ? 'grp' : ''].filter(Boolean).join(' '));
+    const th = el('th', [c.pin ? 'pin' : '', c.type === 'text' ? 'text' : '',
+      c.th || '', c.edge && !NARROW.matches ? 'grp' : ''].filter(Boolean).join(' '));
     th.tabIndex = 0;
     th.title = `Sort by ${c.label}`;
     th.append(document.createTextNode(c.label));
@@ -191,8 +332,7 @@ function renderTable(players) {
     }
     const activate = () => {
       if (state.sort === c.key) {
-        // third click on the same column returns to the sheet's own order
-        if (state.dir === 'asc') { state.sort = null; }
+        if (state.dir === 'asc') state.sort = null;
         else state.dir = 'asc';
       } else {
         state.sort = c.key;
@@ -211,36 +351,33 @@ function renderTable(players) {
   body.replaceChildren();
   const sorted = sortPlayers(players);
 
-  for (const p of sorted) {
+  sorted.forEach((p, i) => {
     const tr = el('tr');
+    tr.append(el('td', 'r', String(i + 1)));
     for (const c of cols) {
       const td = el('td', [c.pin ? 'pin' : '', c.type === 'text' ? 'text' : '', c.cls || '',
-        c.dim ? 'dim' : '', c.group ? 'grp' : ''].filter(Boolean).join(' '));
+        c.dim ? 'dim' : '', c.edge && !NARROW.matches ? 'grp' : ''].filter(Boolean).join(' '));
       if (c.pin) {
         const dot = el('i', `gdot ${p.gender === 'F' ? 'F' : p.gender === 'M' ? 'M' : 'X'}`);
         dot.title = p.gender === 'F' ? 'Women' : p.gender === 'M' ? 'Men' : 'Not recorded';
-        const nm = el('span', 'nm', p.name);
-        td.append(dot, nm);
-        if (!cols.some((x) => x.optional === 'team') && p.team) td.append(el('span', 'sub', p.team));
+        td.append(dot, el('span', 'nm', p.name));
       } else {
         const v = p[c.key];
-        if (v === null || v === undefined || v === '') td.textContent = '—';
-        else if (typeof v === 'number') td.textContent = c.dec ? v.toFixed(c.dec) : String(v);
-        else td.textContent = String(v);
+        td.textContent = num(v, c.dec);
         if (v === null || v === undefined || v === '') td.classList.add('dim');
       }
       tr.append(td);
     }
     body.append(tr);
-  }
+  });
+}
 
-  const empty = $('empty');
-  empty.classList.toggle('hide', sorted.length > 0);
-  if (!sorted.length) {
-    empty.replaceChildren();
-    empty.append(el('b', null, 'Nothing here yet'));
-    empty.append(document.createTextNode('No players have been published for this league and division.'));
-  }
+/* ---------------------------------------------------------------- compose */
+
+function setView(view) {
+  state.view = view;
+  try { localStorage.setItem('bcda.view', view); } catch { /* private mode */ }
+  render();
 }
 
 function render() {
@@ -248,34 +385,47 @@ function render() {
   const players = state.board.players.filter(
     (p) => state.division === 'ALL' || p.division === state.division,
   );
-  renderControls();
+
+  renderChrome();
   renderTiles(players);
-  renderTable(players);
+
+  const cards = state.view === 'cards';
+  $('viewCards').setAttribute('aria-pressed', String(cards));
+  $('viewTable').setAttribute('aria-pressed', String(!cards));
+  show($('cards'), cards && players.length > 0);
+  show($('tablewrap'), !cards && players.length > 0);
+  show($('chips'), cards);
+  show($('gtabs'), !cards && NARROW.matches);
+  $('legendHint').textContent = cards
+    ? 'Tap a card for the full line'
+    : 'Tap any column to sort';
+
+  if (!players.length) {
+    showMessage('Nothing here yet', 'No players published for this league and division.');
+    return;
+  }
+  show($('empty'), false);
+
+  if (cards) { renderChips(); renderCards(players); }
+  else { renderGroupTabs(); renderTable(players); }
+
   writeHash();
 }
 
-function renderStamp() {
-  const stamp = $('stamp');
-  stamp.replaceChildren();
-  if (!state.board) return;
-  const when = new Date(state.board.updatedAt);
-  const nice = when.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-  stamp.append(el('b', null, `${state.board.league} · ${state.board.season}`));
-  stamp.append(el('div', null, `Updated ${nice}`));
+function showMessage(title, detail) {
+  $('tiles').replaceChildren();
+  show($('cards'), false);
+  show($('tablewrap'), false);
+  show($('chips'), false);
+  show($('gtabs'), false);
+  const e = $('empty');
+  show(e, true);
+  e.replaceChildren();
+  e.append(el('b', null, title));
+  e.append(document.createTextNode(detail));
 }
 
 /* ------------------------------------------------------------------- data */
-
-function showMessage(title, detail) {
-  $('tiles').replaceChildren();
-  $('head').replaceChildren();
-  $('rows').replaceChildren();
-  const empty = $('empty');
-  empty.classList.remove('hide');
-  empty.replaceChildren();
-  empty.append(el('b', null, title));
-  empty.append(document.createTextNode(detail));
-}
 
 async function load() {
   const p = new URLSearchParams();
@@ -288,7 +438,7 @@ async function load() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     payload = await res.json();
   } catch (err) {
-    showMessage('Standings could not be loaded', `${err.message}. Refresh to try again.`);
+    showMessage('Standings could not be loaded', `${err.message}. Pull to refresh and try again.`);
     return;
   }
 
@@ -296,8 +446,8 @@ async function load() {
   state.board = payload.board || null;
 
   if (!state.board) {
-    renderControls();
-    showMessage('No standings published yet', 'Once an admin uploads a week of results they will appear here.');
+    renderChrome();
+    showMessage('No standings yet', 'Once an admin uploads a week of results they show up here.');
     return;
   }
 
@@ -306,9 +456,12 @@ async function load() {
   if (state.division !== 'ALL' && !state.board.meta.divisions.includes(state.division)) {
     state.division = 'ALL';
   }
-  renderStamp();
   render();
 }
+
+$('viewCards').addEventListener('click', () => setView('cards'));
+$('viewTable').addEventListener('click', () => setView('table'));
+NARROW.addEventListener('change', () => { if (state.board) render(); });
 
 readHash();
 load();

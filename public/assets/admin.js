@@ -90,7 +90,7 @@ function renderLeagues() {
   const box = $('leagues');
   box.replaceChildren();
   for (const lg of LEAGUES) {
-    const b = el('button', 'tab', lg);
+    const b = el('button', null, lg);
     b.type = 'button';
     b.setAttribute('role', 'tab');
     b.setAttribute('aria-selected', String(lg === state.league));
