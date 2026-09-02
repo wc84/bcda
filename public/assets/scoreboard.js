@@ -390,6 +390,7 @@ function render() {
   renderTiles(players);
 
   const cards = state.view === 'cards';
+  $('vtoggle').dataset.view = state.view;
   $('viewCards').setAttribute('aria-pressed', String(cards));
   $('viewTable').setAttribute('aria-pressed', String(!cards));
   show($('cards'), cards && players.length > 0);

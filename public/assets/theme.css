@@ -57,7 +57,8 @@ h3 { font-size: 15px; }
 p { margin: 0; }
 a { color: var(--green); }
 
-.shell { max-width: 1280px; margin: 0 auto; padding: 0 clamp(12px, 3vw, 24px) 60px;
+.shell { max-width: 1280px; margin: 0 auto;
+  padding: clamp(18px, 2.8vw, 26px) clamp(12px, 3vw, 24px) 60px;
   display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .shell > * { min-width: 0; }
 .shell.narrow { max-width: 520px; }
@@ -103,8 +104,8 @@ a { color: var(--green); }
 
 .pills { display: flex; gap: 7px; flex-wrap: wrap; }
 .pills button {
-  font-family: var(--type); font-size: 11px; letter-spacing: .09em; text-transform: uppercase;
-  padding: 6px 14px; border-radius: 20px; cursor: pointer;
+  font-family: var(--type); font-size: 12.5px; letter-spacing: .09em; text-transform: uppercase;
+  padding: 8px 18px; border-radius: 22px; cursor: pointer;
   border: 2px solid var(--green); background: transparent; color: var(--green);
   transition: background .15s, color .15s;
 }
@@ -127,32 +128,35 @@ a { color: var(--green); }
   padding: 10px 12px 11px;
   display: flex; flex-direction: column; gap: 1px;
 }
-.tile .l { font-family: var(--hand); font-weight: 700; font-size: 15px;
-  line-height: 1.15; color: #BFD8C6; display: flex; align-items: center; gap: 6px; }
+.tile .l { font-family: var(--type); font-size: 9.5px; letter-spacing: .1em;
+  text-transform: uppercase; color: #9DBBA6; display: flex; align-items: center; gap: 6px; }
 .tile .l svg { width: 15px; height: 15px; flex: 0 0 auto; opacity: .85; }
-.tile .v { font-family: var(--display); font-size: clamp(26px, 5vw, 34px);
-  line-height: 1.02; font-variant-numeric: tabular-nums; }
+.tile .v { font-family: var(--hand); font-weight: 700; font-size: clamp(40px, 8vw, 52px);
+  line-height: .92; margin: 1px 0 -2px; }
 .tile .w { font-family: var(--hand); font-weight: 500; font-size: 15px; color: #DCE8DF;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
 .tile.women .v { color: var(--women); }
 .tile.men   .v { color: var(--men); }
-.tile.empty .v { color: #7D9585; font-size: 20px; }
+.tile.empty .v { color: #7D9585; font-size: 30px; }
 .tile.empty .w { color: #7D9585; }
 
 /* ------------------------------------------------------------ view switch */
 
 .viewbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.switch { display: flex; border: 2px solid var(--ink); border-radius: 8px;
-  overflow: hidden; box-shadow: var(--hard-l); background: var(--panel); }
-.switch button {
-  display: flex; align-items: center; gap: 6px; cursor: pointer; border: 0;
+.vtoggle { position: relative; display: inline-flex; padding: 3px; border-radius: 999px;
+  background: var(--forest); border: 2px solid var(--ink); box-shadow: var(--hard-l);
+  flex: 0 0 auto; margin-left: auto; }
+.vtoggle button {
+  position: relative; z-index: 1; flex: 1 1 0; min-width: 92px;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
   font-family: var(--type); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase;
-  padding: 7px 12px; background: transparent; color: var(--muted); transition: .15s;
+  padding: 8px 15px; border: 0; border-radius: 999px; background: transparent;
+  color: #BFD8C6; cursor: pointer; transition: background .2s, color .2s;
 }
-.switch button + button { border-left: 2px solid var(--ink); }
-.switch button svg { width: 14px; height: 14px; }
-.switch button[aria-pressed="true"] { background: var(--amber); color: var(--ink); }
-.switch button:focus-visible { outline: 3px solid var(--green); outline-offset: -3px; }
+.vtoggle button[aria-pressed="true"] { background: var(--amber); color: var(--ink);
+  box-shadow: 0 1px 0 rgba(0,0,0,.25); }
+.vtoggle button svg { width: 14px; height: 14px; }
+.vtoggle button:focus-visible { outline: 3px solid var(--amber); outline-offset: 3px; }
 
 /* sort chips */
 .chips { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
@@ -326,3 +330,12 @@ td.dim { color: var(--muted); }
 .seg.light button { color: var(--muted); }
 .seg.light button:hover { color: var(--ink); }
 .seg.light button[aria-selected="true"] { background: var(--green); color: var(--paper); }
+
+/* ------------------------------------------------------------ powered by */
+.powered { display: flex; flex-direction: column; align-items: center; gap: 3px;
+  margin-top: 30px; padding-top: 20px; border-top: 2px solid var(--line); }
+.powered span { font-family: var(--type); font-size: 10px; letter-spacing: .18em;
+  text-transform: uppercase; color: var(--muted); }
+.powered a { display: block; line-height: 0; }
+.powered img { height: 56px; width: auto; display: block; }
+@media (max-width: 640px) { .powered img { height: 48px; } }
