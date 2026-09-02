@@ -255,8 +255,13 @@ td.pin .sub { display: block; font-size: 11px; color: var(--muted); }
 td.r { font-family: var(--display); width: 26px; text-align: center; color: var(--muted); }
 td.as { font-family: var(--display); font-size: 15px; }
 td.total { font-family: var(--display); font-size: 16px; color: var(--forest); }
-th.total, td.total { background: rgba(245,176,74,.22); }
+td.total { background: rgba(245,176,74,.22); }
 tbody tr:hover td.total { background: rgba(245,176,74,.34); }
+/* The headline column's header needs its own colours: the pale amber tint above
+   out-specifies `thead th`, so it would keep that rule's cream text and vanish. */
+thead th.total { background: var(--amber); color: var(--ink); }
+thead th.total:hover { background: #EFA93A; color: var(--ink); }
+thead th.total[aria-sort] { background: #DE9223; color: var(--ink); }
 th.grp { border-left: 2px solid var(--ink); }
 td.grp { border-left: 2px solid var(--line); }
 td.dim { color: var(--muted); }
