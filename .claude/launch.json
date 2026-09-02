@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "bcda",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["netlify", "dev", "--offline", "--port", "8888"],
+      "port": 8888
+    }
+  ]
+}

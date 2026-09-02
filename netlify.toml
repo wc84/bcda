@@ -1,0 +1,33 @@
+[build]
+  publish = "public"
+  functions = "netlify/functions"
+  command = ""
+
+# Rewrites, never redirects: this site is proxied from smartdart.net/bcda/*,
+# so a 3xx Location header would send the visitor to the wrong origin.
+[[redirects]]
+  from = "/"
+  to = "/scoreboard.html"
+  status = 200
+
+[[redirects]]
+  from = "/scoreboard/"
+  to = "/scoreboard.html"
+  status = 200
+
+[[redirects]]
+  from = "/admin/"
+  to = "/admin.html"
+  status = 200
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "SAMEORIGIN"
+    Referrer-Policy = "same-origin"
+
+[[headers]]
+  for = "/admin"
+  [headers.values]
+    X-Robots-Tag = "noindex"

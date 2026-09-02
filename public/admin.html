@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BCDA Admin</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#323232">
+<link rel="stylesheet" href="assets/theme.css">
+<style>
+  .drop {
+    border: 2px dashed var(--main-color); border-radius: var(--radius);
+    background: var(--sunk); padding: 26px 20px; text-align: center;
+    cursor: pointer; display: flex; flex-direction: column; gap: 6px; align-items: center;
+  }
+  .drop:focus-visible { outline: 3px solid var(--input-focus); outline-offset: 2px; }
+  .drop.over { border-style: solid; border-color: var(--input-focus); background: var(--bg-color); }
+  .drop .big { font-family: var(--display); font-weight: 700; font-size: 16px; }
+  .slots { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
+  .slot { border: 2px solid var(--hair); border-radius: var(--radius); padding: 11px 13px;
+    display: flex; flex-direction: column; gap: 3px; background: var(--bg-color); }
+  .slot.filled { border-color: var(--good); }
+  .slot .k { font-family: var(--display); font-size: 10.5px; font-weight: 700;
+    letter-spacing: .12em; text-transform: uppercase; color: var(--font-color-sub); }
+  .slot .f { font-size: 13.5px; word-break: break-all; }
+  .slot .f.none { color: var(--font-color-sub); }
+  .warnlist { display: flex; flex-direction: column; gap: 6px; max-height: 210px; overflow-y: auto; }
+  .warnlist div { font-size: 13px; padding: 6px 9px; border-radius: 3px; background: var(--sunk);
+    border-left: 3px solid var(--warn); }
+  .warnlist div.info { border-left-color: var(--input-focus); }
+  .stats { display: flex; gap: 22px; flex-wrap: wrap; }
+  .stats div { display: flex; flex-direction: column; }
+  .stats .n { font-family: var(--display); font-size: 24px; font-weight: 800;
+    font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .stats .l { font-size: 11px; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--font-color-sub); font-family: var(--display); font-weight: 700; }
+  .delta { font-family: var(--display); font-weight: 700; }
+  .delta.up { color: var(--good); }
+  .delta.new { color: var(--input-focus); }
+  .histrow { display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+    padding: 9px 0; border-bottom: 1px solid var(--hair); font-size: 13.5px; }
+  .histrow:last-child { border-bottom: none; }
+  .maxh { max-height: 420px; overflow: auto; }
+</style>
+</head>
+<body>
+
+<!-- ------------------------------------------------------------- sign in -->
+<div class="shell narrow" id="gate">
+  <header class="masthead">
+    <div class="titles">
+      <p class="eyebrow">Broward County Darts Association</p>
+      <h1>Admin</h1>
+    </div>
+  </header>
+  <form class="card" id="gateForm">
+    <div class="field">
+      <label for="passcode">Passcode</label>
+      <input class="input" type="password" id="passcode" name="passcode"
+             autocomplete="current-password" placeholder="Enter the admin passcode" required>
+    </div>
+    <div class="msg bad hide" id="gateMsg"></div>
+    <div class="row end"><button class="btn primary" type="submit" id="gateBtn">Sign in</button></div>
+  </form>
+  <p class="note">Sessions last 8 hours. <a href="scoreboard.html">View the public scoreboard</a></p>
+</div>
+
+<!-- ---------------------------------------------------------------- app -->
+<div class="shell hide" id="app">
+
+  <header class="masthead">
+    <div class="titles">
+      <p class="eyebrow">Broward County Darts Association</p>
+      <h1>Admin</h1>
+    </div>
+    <div class="spacer"></div>
+    <a class="btn" href="scoreboard.html">View scoreboard</a>
+    <button class="btn" type="button" id="signOut">Sign out</button>
+  </header>
+
+  <div class="card">
+    <h2>1 &middot; Which board is this?</h2>
+    <div class="row">
+      <div class="field grow" style="max-width:320px">
+        <label for="season">Season</label>
+        <input class="input" id="season" placeholder="Winter/Spring 2026" list="seasons">
+        <datalist id="seasons"></datalist>
+      </div>
+    </div>
+    <div class="field">
+      <label>League</label>
+      <div class="tabs" id="leagues" role="tablist"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>2 &middot; Drop the two exports</h2>
+    <div class="drop" id="drop" tabindex="0" role="button"
+         aria-label="Drop CSV files here or press Enter to browse">
+      <span class="big">Drop the cricket and &rsquo;01 CSVs here</span>
+      <span class="note">Either order &mdash; each file is identified by its own columns. Or click to browse.</span>
+      <input type="file" id="file" accept=".csv,text/csv" multiple class="hide">
+    </div>
+    <div class="slots">
+      <div class="slot" id="slotCricket">
+        <span class="k">Cricket</span><span class="f none" id="nameCricket">Nothing yet</span>
+      </div>
+      <div class="slot" id="slotX01">
+        <span class="k">&rsquo;01</span><span class="f none" id="nameX01">Nothing yet</span>
+      </div>
+    </div>
+    <div class="msg bad hide" id="dropMsg"></div>
+    <div class="row end">
+      <button class="btn" type="button" id="clearBtn">Clear</button>
+      <button class="btn primary" type="button" id="processBtn" disabled>Process</button>
+    </div>
+  </div>
+
+  <div class="card hide" id="previewCard">
+    <div class="row">
+      <h2 class="grow">3 &middot; Check it, then publish</h2>
+      <span class="badge quiet" id="modeBadge"></span>
+    </div>
+    <div class="stats" id="stats"></div>
+    <div class="warnlist hide" id="warnings"></div>
+    <div class="tablewrap maxh">
+      <table><thead><tr id="pvHead"></tr></thead><tbody id="pvRows"></tbody></table>
+    </div>
+    <div class="msg hide" id="pubMsg"></div>
+    <div class="row end">
+      <button class="btn primary" type="button" id="publishBtn">Publish to the scoreboard</button>
+    </div>
+  </div>
+
+  <div class="card hide" id="rosterCard">
+    <h2>Roster fixes</h2>
+    <p class="note">For what the export cannot tell us. Saved separately, so a re-upload never wipes them.</p>
+    <div class="tablewrap maxh">
+      <table><thead><tr><th class="text">Player</th><th class="text">Gender</th><th class="text">Team</th></tr></thead>
+      <tbody id="rosterRows"></tbody></table>
+    </div>
+    <div class="msg good hide" id="rosterMsg"></div>
+    <div class="row end"><button class="btn" type="button" id="rosterBtn">Save roster fixes</button></div>
+  </div>
+
+  <div class="card" id="historyCard">
+    <h2>Published history</h2>
+    <p class="note" id="historyNote">Pick a season and league to see what has been published.</p>
+    <div id="history"></div>
+  </div>
+
+</div>
+
+<script type="module" src="assets/admin.js"></script>
+</body>
+</html>
