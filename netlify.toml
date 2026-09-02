@@ -31,3 +31,10 @@
   for = "/admin"
   [headers.values]
     X-Robots-Tag = "noindex"
+
+# This site is proxied from smartdart.net/bcda/*, so Netlify's asset
+# post-processing must stay off: its "Pretty URLs" step rewrites href="x.html"
+# into a root-absolute href="/x", which escapes the /bcda/ prefix and lands the
+# visitor on smartdart.net's own root.
+[build.processing]
+  skip_processing = true
