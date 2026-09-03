@@ -107,7 +107,7 @@ a { color: var(--green); }
 .sel.division { margin-left: auto; }
 .sel select {
   appearance: none; -webkit-appearance: none;
-  font-family: var(--display); font-size: 13.5px; letter-spacing: .05em;
+  font-family: var(--type); font-size: 12.5px; letter-spacing: .09em;
   text-transform: uppercase; line-height: 1;
   padding: 11px 38px 11px 17px; border-radius: 24px; cursor: pointer;
   border: 2px solid var(--green); background: var(--panel); color: var(--green);
