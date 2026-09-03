@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
 
 import {
-  parseCSV, toRecords, detectKind, parseDivision, num,
+  parseCSV, toRecords, detectKind, parseDivision, num, isEliteOnly,
   cricketAllStars, x01Bands, x01AllStars, buildBoard, computeRecords,
 } from '../public/assets/engine.mjs';
 
@@ -208,7 +208,7 @@ test('the real Winter/Spring 2026 Singles exports build a clean board', { skip: 
   const bear = board.players.find((p) => p.name === 'Bear Nance');
   assert.deepEqual(
     { cricketAS: bear.cricketAS, x01AS: bear.x01AS, totalAS: bear.totalAS },
-    { cricketAS: 149, x01AS: 161, totalAS: 310 },
+    { cricketAS: 20, x01AS: 8, totalAS: 28 },   // Singles A, so elite-only scoring
   );
   assert.deepEqual([bear.b100_139, bear.b140_179, bear.b180], [95, 29, 2]);
   assert.equal(bear.mpr, 2.75);
@@ -293,4 +293,67 @@ test('the real Summer 2026 Doubles exports build a clean board', { skip: !haveDo
   assert.equal(recA.M.out.name, 'Larry Holland');
   assert.equal(recA.M.out.value, 124);
   assert.equal(recA.F.in.name, 'Ally Heventhal');
+});
+
+/* ------------------------------------------------------------------------
+ * Singles A scores only a 9-mark round, 6 corks and a 180, at 4 each.
+ * Every other league and division keeps the full tables.
+ * ---------------------------------------------------------------------- */
+
+test('only Singles A uses the elite-only scoring', () => {
+  assert.equal(isEliteOnly({ league: 'Singles', division: 'A' }), true);
+  assert.equal(isEliteOnly({ league: 'Singles', division: 'B' }), false);
+  assert.equal(isEliteOnly({ league: 'Doubles', division: 'A' }), false);
+  assert.equal(isEliteOnly({ league: 'Teams', division: 'A' }), false);
+});
+
+test('elite scoring counts 9-mark rounds, 6 corks and 180s at 4, nothing else', () => {
+  const p = { m6: 30, m7: 27, m8: 1, m9: 2, b3: 35, b4: 3, b5: 0, b6: 1,
+              b100_139: 100, b140_179: 14, b180: 3 };
+  assert.equal(cricketAllStars(p, true), (2 + 1) * 4);
+  assert.equal(x01AllStars(p, true), 3 * 4);
+  // the same player under the standard tables scores far more
+  assert.ok(cricketAllStars(p, false) > cricketAllStars(p, true));
+  assert.ok(x01AllStars(p, false) > x01AllStars(p, true));
+});
+
+test('the real Singles board scores A elite and B standard', { skip: !haveReal }, () => {
+  const board = buildBoard({
+    cricketCsv: readFileSync(CRICKET_FILE, 'utf8'),
+    x01Csv: readFileSync(X01_FILE, 'utf8'),
+  });
+
+  const bear = board.players.find((p) => p.name === 'Bear Nance');      // Singles A
+  assert.equal(bear.scoring, 'elite');
+  assert.deepEqual([bear.m9, bear.b6, bear.b180], [5, 0, 2]);
+  assert.deepEqual(
+    { cricketAS: bear.cricketAS, x01AS: bear.x01AS, totalAS: bear.totalAS },
+    { cricketAS: 20, x01AS: 8, totalAS: 28 },
+  );
+
+  const gillanders = board.players.find((p) => p.name === 'Mark Gillanders');
+  assert.equal(gillanders.totalAS, 0, 'an A player with none of the three scores zero');
+
+  const ally = board.players.find((p) => p.name === 'Ally Heventhal');  // Singles B
+  assert.equal(ally.scoring, 'standard');
+  assert.equal(ally.totalAS, 118, 'B division scoring is untouched');
+
+  assert.deepEqual(board.meta.eliteDivisions, ['A']);
+
+  // every stat column is still collected; only the scoring changed
+  assert.equal(bear.m6, 26);
+  assert.equal(bear.b3, 28);
+  assert.deepEqual([bear.b100_139, bear.b140_179], [95, 29]);
+  assert.equal(bear.mpr, 2.75);
+});
+
+test('Doubles A is untouched by the Singles A rule', { skip: !haveDoubles }, () => {
+  const board = buildBoard({
+    cricketCsv: readFileSync(DBL_CRICKET, 'utf8'),
+    x01Csv: readFileSync(DBL_X01, 'utf8'),
+  });
+  const powers = board.players.find((p) => p.name === 'Mike Powers');   // Doubles A
+  assert.equal(powers.scoring, 'standard');
+  assert.equal(powers.totalAS, 28);
+  assert.deepEqual(board.meta.eliteDivisions, []);
 });

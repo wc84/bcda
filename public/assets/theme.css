@@ -349,3 +349,8 @@ td.dim { color: var(--muted); }
 .pills.seasons button { border-color: var(--orange); color: #A85714; }
 .pills.seasons button:hover { background: rgba(232,119,34,.12); }
 .pills.seasons button[aria-selected="true"] { background: var(--orange); color: #fff; }
+
+/* explains why one division's totals sit on a different scale */
+.scorenote { font-size: 13px; line-height: 1.5; color: #7A4A12;
+  background: #FDF1E2; border-left: 4px solid var(--orange);
+  border-radius: 0 6px 6px 0; padding: 9px 13px; }

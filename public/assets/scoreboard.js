@@ -89,6 +89,27 @@ function tab(label, selected, onClick, cls = 'tab') {
   return b;
 }
 
+/**
+ * Singles A scores on a different scale from Singles B, so a combined ranking
+ * puts the strongest players near the bottom. Say so rather than let the board
+ * look broken.
+ */
+function renderScoreNote(players) {
+  const note = $('scoreNote');
+  const elite = players.filter((p) => p.scoring === 'elite').length;
+  const standard = players.length - elite;
+
+  if (elite && standard) {
+    note.textContent = 'A Division scores only 9-mark rounds, 6 corks and 180s '
+      + '(4 points each), so A and B totals are not comparable. Pick a division to '
+      + 'rank like with like.';
+  } else if (elite) {
+    note.textContent = 'A Division scores only 9-mark rounds, 6 corks and 180s — '
+      + '4 points each. Every other stat is shown but does not earn points.';
+  }
+  show(note, elite > 0);
+}
+
 function renderChrome() {
   const seasons = [...new Set(state.index.map((e) => e.seasonSlug))]
     .map((slug) => state.index.find((e) => e.seasonSlug === slug));
@@ -405,6 +426,7 @@ function render() {
 
   renderChrome();
   renderTiles(players);
+  renderScoreNote(players);
 
   const cards = state.view === 'cards';
   $('vtoggle').dataset.view = state.view;

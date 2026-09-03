@@ -18,6 +18,16 @@ export const X01_WEIGHTS = Object.freeze({
   b180: 4,
 });
 
+/**
+ * Singles A scores only the three top achievements — a 9-mark round, 6 corks
+ * and a 180 — at 4 points each. Nothing else earns a point there. Every other
+ * league and division uses the full tables above. All the stat columns are
+ * still collected and displayed either way; only the scoring differs.
+ */
+export const ELITE_WEIGHT = 4;
+
+export const isEliteOnly = (p) => p.league === 'Singles' && p.division === 'A';
+
 /* ------------------------------------------------------------- CSV parsing */
 
 /** RFC4180-ish parser: handles quoted fields, embedded commas, doubled quotes, CRLF. */
@@ -149,13 +159,15 @@ function readTeam(rec) {
 
 /* --------------------------------------------------------------- scoring */
 
-export function cricketAllStars(p) {
+export function cricketAllStars(p, eliteOnly = false) {
+  if (eliteOnly) return (p.m9 + p.b6) * ELITE_WEIGHT;
   const w = CRICKET_WEIGHTS;
   return p.m6 * w.m6 + p.m7 * w.m7 + p.m8 * w.m8 + p.m9 * w.m9
        + p.b3 * w.b3 + p.b4 * w.b4 + p.b5 * w.b5 + p.b6 * w.b6;
 }
 
-export function x01AllStars(p) {
+export function x01AllStars(p, eliteOnly = false) {
+  if (eliteOnly) return p.b180 * ELITE_WEIGHT;
   const w = X01_WEIGHTS;
   return p.b100_139 * w.b100_139 + p.b140_179 * w.b140_179 + p.b180 * w.b180;
 }
@@ -299,8 +311,10 @@ export function buildBoard({ cricketCsv = '', x01Csv = '', roster = {} } = {}) {
       if (override.gender) p.gender = String(override.gender).toUpperCase();
       if (override.team) p.team = override.team;
     }
-    p.cricketAS = cricketAllStars(p);
-    p.x01AS = x01AllStars(p);
+    const elite = isEliteOnly(p);
+    p.scoring = elite ? 'elite' : 'standard';
+    p.cricketAS = cricketAllStars(p, elite);
+    p.x01AS = x01AllStars(p, elite);
     p.totalAS = p.cricketAS + p.x01AS;
     p.name = `${p.first} ${p.last}`.trim();
   }
@@ -337,6 +351,8 @@ export function buildBoard({ cricketCsv = '', x01Csv = '', roster = {} } = {}) {
       league: leagues.size === 1 ? [...leagues][0] : [...leagues].join(' + '),
       leagues: [...leagues],
       divisions: [...divisions].sort(),
+      eliteDivisions: [...new Set(players.filter((p) => p.scoring === 'elite')
+        .map((p) => p.division))].sort(),
       bandMode: bandMode ?? 'none',
       cumulative: cumulativeSeen,
       cricketRows: cricket.rows.length,
