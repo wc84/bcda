@@ -344,3 +344,8 @@ td.dim { color: var(--muted); }
 .powered a { display: block; line-height: 0; }
 .powered img { height: 56px; width: auto; display: block; }
 @media (max-width: 640px) { .powered img { height: 48px; } }
+
+/* season picker: same pill shape, amber so it never reads as a division */
+.pills.seasons button { border-color: var(--orange); color: #A85714; }
+.pills.seasons button:hover { background: rgba(232,119,34,.12); }
+.pills.seasons button[aria-selected="true"] { background: var(--orange); color: #fff; }

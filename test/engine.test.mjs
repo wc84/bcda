@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
 
 import {
-  parseCSV, toRecords, detectKind, parseDivision,
+  parseCSV, toRecords, detectKind, parseDivision, num,
   cricketAllStars, x01Bands, x01AllStars, buildBoard, computeRecords,
 } from '../public/assets/engine.mjs';
 
@@ -219,4 +219,78 @@ test('the real Winter/Spring 2026 Singles exports build a clean board', { skip: 
   assert.equal(records.M.in.value, 170);
   assert.equal(records.M.out.value, 164);
   assert.equal(records.F.in.name, 'Cris Campomezzi');
+});
+
+/* ------------------------------------------------------------------------
+ * The Doubles exports are a different shape from Singles: every field is
+ * quoted, there is an extra Team column, and Division reads "Doubles A"
+ * rather than "A Division - Singles".
+ * ---------------------------------------------------------------------- */
+
+test('division parsing handles the Doubles export format too', () => {
+  assert.deepEqual(parseDivision('Doubles A'), { division: 'A', league: 'Doubles', raw: 'Doubles A' });
+  assert.deepEqual(parseDivision('Doubles B'), { division: 'B', league: 'Doubles', raw: 'Doubles B' });
+  assert.equal(parseDivision('Teams A').league, 'Teams');
+  assert.equal(parseDivision('Singles A').league, 'Singles');
+});
+
+test('a fully quoted export with a Team column parses', () => {
+  const board = buildBoard({
+    cricketCsv: `"Last","First","Gender","Team","Division","Marks Scored","MPR","6M","7M","8M","9M","3B","4B","5B","6B"
+"Boud","Trish","F","Straight Trippin","Doubles A","264","2.36","3","1","0","0","4","0","0","1"
+`,
+    x01Csv: `"Last","First","Gender","Team","Division","Points Scored","3DA","HDI","HDO","100+","140+","180","T00_19","T20_39","T40_59","T60_79"
+"Boud","Trish","F","Straight Trippin","Doubles A","4268","44.61","41","49","8","3","0","1","4","3","0"
+`,
+  });
+  const p = board.players[0];
+  assert.equal(p.team, 'Straight Trippin');
+  assert.equal(p.division, 'A');
+  assert.equal(p.league, 'Doubles');
+  assert.equal(p.cricketAS, 13);
+  assert.deepEqual([p.b100_139, p.b140_179, p.b180], [5, 3, 0]);
+  assert.equal(p.x01AS, 5 + 6);
+  assert.equal(board.warnings.length, 0);
+});
+
+test('a dash where a number should be is read as blank, not zero', () => {
+  // Joey Curtis has "-" for Best Leg in the real Doubles export.
+  assert.equal(num('-'), null);
+  assert.equal(num(''), null);
+  assert.equal(num('57'), 57);
+});
+
+const DBL_CRICKET = `${DOWNLOADS}/BCDAD_Summer_2026_all_cricket_leaderboard.csv`;
+const DBL_X01 = `${DOWNLOADS}/BCDAD_Summer_2026_all_01_leaderboard.csv`;
+const haveDoubles = existsSync(DBL_CRICKET) && existsSync(DBL_X01);
+
+test('the real Summer 2026 Doubles exports build a clean board', { skip: !haveDoubles }, () => {
+  const board = buildBoard({
+    cricketCsv: readFileSync(DBL_CRICKET, 'utf8'),
+    x01Csv: readFileSync(DBL_X01, 'utf8'),
+  });
+
+  assert.equal(board.players.length, 24);
+  assert.equal(board.meta.league, 'Doubles');
+  assert.deepEqual(board.meta.divisions, ['A', 'B']);
+  assert.equal(board.meta.bandMode, 'bands');
+  assert.equal(board.warnings.length, 0, 'nothing should need flagging in this export');
+
+  // every player carries a team, which the Singles export never does
+  assert.ok(board.players.every((p) => p.team), 'every Doubles player has a team');
+  assert.equal(new Set(board.players.map((p) => p.team)).size, 11);
+
+  const powers = board.players.find((p) => p.name === 'Mike Powers');
+  assert.equal(powers.team, 'Welcome to Bradys');
+  assert.deepEqual(
+    { cricketAS: powers.cricketAS, x01AS: powers.x01AS, totalAS: powers.totalAS },
+    { cricketAS: 17, x01AS: 11, totalAS: 28 },
+  );
+
+  const recA = computeRecords(board.players.filter((p) => p.division === 'A'));
+  assert.equal(recA.M.in.name, 'Jeff Raschdorf');
+  assert.equal(recA.M.in.value, 160);
+  assert.equal(recA.M.out.name, 'Larry Holland');
+  assert.equal(recA.M.out.value, 124);
+  assert.equal(recA.F.in.name, 'Ally Heventhal');
 });

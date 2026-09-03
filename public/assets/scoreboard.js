@@ -115,10 +115,21 @@ function renderChrome() {
     lt.append(b);
   }
 
+  // Seasons get their own row. Mixed in with the divisions they look identical
+  // and read as one confusing list the moment a second season exists.
+  const st = $('seasons');
+  st.replaceChildren();
+  show(st, seasons.length >= 2);
+  for (const entry of seasons) {
+    st.append(tab(entry.season, entry.seasonSlug === state.season, () => {
+      state.season = entry.seasonSlug; state.league = null; load();
+    }, ''));
+  }
+
   const divs = state.board ? state.board.meta.divisions : [];
   const dt = $('divisions');
   dt.replaceChildren();
-  show(dt, divs.length >= 2 || seasons.length >= 2);
+  show(dt, divs.length >= 2);
   if (divs.length >= 2) {
     dt.append(tab('All divisions', state.division === 'ALL',
       () => { state.division = 'ALL'; render(); }, ''));
@@ -126,12 +137,6 @@ function renderChrome() {
       dt.append(tab(`${d} Division`, state.division === d,
         () => { state.division = d; render(); }, ''));
     }
-  }
-  for (const entry of seasons) {
-    if (seasons.length < 2) break;
-    dt.append(tab(entry.season, entry.seasonSlug === state.season, () => {
-      state.season = entry.seasonSlug; state.league = null; load();
-    }, ''));
   }
 }
 
