@@ -105,13 +105,25 @@ function renderChrome() {
 
   const lt = $('leagues');
   lt.replaceChildren();
-  const have = state.index.filter((e) => e.seasonSlug === state.season).map((e) => e.league);
+  const here = state.index.filter((e) => e.seasonSlug === state.season).map((e) => e.league);
   for (const lg of ['Singles', 'Doubles', 'Teams']) {
+    const inSeason = here.includes(lg);
+    // index is newest-first, so this is the most recent season carrying that league
+    const elsewhere = inSeason ? null : state.index.find((e) => e.league === lg);
     const b = tab(lg, lg === state.league, () => {
-      if (!have.includes(lg)) return;
-      state.league = lg; state.division = 'ALL'; load();
+      if (!inSeason && !elsewhere) return;
+      if (elsewhere) state.season = elsewhere.seasonSlug;   // follow the league to its season
+      state.league = lg;
+      state.division = 'ALL';
+      load();
     }, '');
-    if (!have.includes(lg)) { b.disabled = true; b.title = `No ${lg} board published yet`; b.style.opacity = '.4'; }
+    if (!inSeason && !elsewhere) {
+      b.disabled = true;
+      b.title = `No ${lg} board published yet`;
+      b.style.opacity = '.4';
+    } else if (elsewhere) {
+      b.title = `${lg} is published under ${elsewhere.season}`;
+    }
     lt.append(b);
   }
 
