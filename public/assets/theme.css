@@ -100,18 +100,29 @@ a { color: var(--green); }
 .seg button[aria-selected="true"] { background: var(--orange); color: #fff; }
 .seg button:focus-visible { outline: 3px solid var(--amber); outline-offset: 2px; }
 
-/* ------------------------------------------------------- division pills */
+/* -------------------------------------------------- season / division picks */
 
-.pills { display: flex; gap: 7px; flex-wrap: wrap; }
-.pills button {
-  font-family: var(--type); font-size: 12.5px; letter-spacing: .09em; text-transform: uppercase;
-  padding: 8px 18px; border-radius: 22px; cursor: pointer;
-  border: 2px solid var(--green); background: transparent; color: var(--green);
-  transition: background .15s, color .15s;
+.selectors { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.sel { position: relative; display: inline-flex; }
+.sel.division { margin-left: auto; }
+.sel select {
+  appearance: none; -webkit-appearance: none;
+  font-family: var(--display); font-size: 13.5px; letter-spacing: .05em;
+  text-transform: uppercase; line-height: 1;
+  padding: 11px 38px 11px 17px; border-radius: 24px; cursor: pointer;
+  border: 2px solid var(--green); background: var(--panel); color: var(--green);
+  box-shadow: var(--hard-l);
 }
-.pills button:hover { background: rgba(13,107,58,.1); }
-.pills button[aria-selected="true"] { background: var(--green); color: var(--paper); }
-.pills button:focus-visible { outline: 3px solid var(--orange); outline-offset: 2px; }
+.sel select:hover { background: var(--sunk); }
+.sel select:focus-visible { outline: 3px solid var(--amber); outline-offset: 2px; }
+.sel::after {
+  content: ''; position: absolute; right: 16px; top: 50%; margin-top: -3px;
+  pointer-events: none; width: 0; height: 0;
+  border-left: 5px solid transparent; border-right: 5px solid transparent;
+  border-top: 6px solid var(--green);
+}
+.sel.season select { border-color: var(--orange); color: #A85714; }
+.sel.season::after { border-top-color: var(--orange); }
 
 /* ------------------------------------------------- chalkboard record tiles */
 
@@ -344,11 +355,6 @@ td.dim { color: var(--muted); }
 .powered a { display: block; line-height: 0; }
 .powered img { height: 56px; width: auto; display: block; }
 @media (max-width: 640px) { .powered img { height: 48px; } }
-
-/* season picker: same pill shape, amber so it never reads as a division */
-.pills.seasons button { border-color: var(--orange); color: #A85714; }
-.pills.seasons button:hover { background: rgba(232,119,34,.12); }
-.pills.seasons button[aria-selected="true"] { background: var(--orange); color: #fff; }
 
 /* explains why one division's totals sit on a different scale */
 .scorenote { font-size: 13px; line-height: 1.5; color: #7A4A12;

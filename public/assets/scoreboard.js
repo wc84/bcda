@@ -148,29 +148,34 @@ function renderChrome() {
     lt.append(b);
   }
 
-  // Seasons get their own row. Mixed in with the divisions they look identical
-  // and read as one confusing list the moment a second season exists.
-  const st = $('seasons');
-  st.replaceChildren();
-  show(st, seasons.length >= 2);
+  // Native selects: one tap opens the phone's own picker, and the two of them
+  // cost a single row where the pill rows cost two.
+  const ss = $('seasonSel');
+  ss.replaceChildren();
   for (const entry of seasons) {
-    st.append(tab(entry.season, entry.seasonSlug === state.season, () => {
-      state.season = entry.seasonSlug; state.league = null; load();
-    }, ''));
+    const o = el('option', null, entry.season);
+    o.value = entry.seasonSlug;
+    o.selected = entry.seasonSlug === state.season;
+    ss.append(o);
   }
+  show($('seasonWrap'), seasons.length >= 2);
+  ss.onchange = () => { state.season = ss.value; state.league = null; load(); };
 
   const divs = state.board ? state.board.meta.divisions : [];
-  const dt = $('divisions');
-  dt.replaceChildren();
-  show(dt, divs.length >= 2);
-  if (divs.length >= 2) {
-    dt.append(tab('All divisions', state.division === 'ALL',
-      () => { state.division = 'ALL'; render(); }, ''));
-    for (const d of divs) {
-      dt.append(tab(`${d} Division`, state.division === d,
-        () => { state.division = d; render(); }, ''));
-    }
+  const ds = $('divSel');
+  ds.replaceChildren();
+  const all = el('option', null, 'All divisions');
+  all.value = 'ALL';
+  all.selected = state.division === 'ALL';
+  ds.append(all);
+  for (const d of divs) {
+    const o = el('option', null, `${d} Division`);
+    o.value = d;
+    o.selected = state.division === d;
+    ds.append(o);
   }
+  show($('divWrap'), divs.length >= 2);
+  ds.onchange = () => { state.division = ds.value; render(); };
 }
 
 /* ------------------------------------------------------- chalkboard tiles */
