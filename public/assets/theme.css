@@ -80,6 +80,9 @@ a { color: var(--green); }
   flex-direction: column; gap: 11px; }
 .brand { display: flex; align-items: center; gap: 11px; }
 .brand .board { width: 34px; height: 34px; color: var(--amber); flex: 0 0 auto; }
+/* Header mark. Height is capped so the logo can never drive the bar taller
+   than the two lines of text beside it; width follows the aspect ratio. */
+.brand .logo { height: 58px; width: auto; flex: 0 0 auto; display: block; }
 .brand .nm { font-family: var(--display); font-size: clamp(19px, 3.4vw, 26px);
   text-transform: uppercase; letter-spacing: -.01em; line-height: 1; color: var(--paper); }
 .brand .sub { font-family: var(--type); font-size: 10px; letter-spacing: .13em;
@@ -336,6 +339,7 @@ td.dim { color: var(--muted); }
 .msg.good { border-color: var(--green); color: var(--forest); background: #E7F1E9; }
 
 @media (max-width: 640px) {
+  .brand .logo { height: 46px; }
   th, td { padding: 7px 8px; font-size: 12.5px; }
   .cards { grid-template-columns: 1fr; }
 }
