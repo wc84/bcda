@@ -82,7 +82,13 @@ a { color: var(--green); }
 .brand .board { width: 34px; height: 34px; color: var(--amber); flex: 0 0 auto; }
 /* Header mark. Height is capped so the logo can never drive the bar taller
    than the two lines of text beside it; width follows the aspect ratio. */
-.brand .logo { height: 58px; width: auto; flex: 0 0 auto; display: block; }
+/* White tile behind the mark: the logo's own navy body would otherwise sit
+   on the dark green bar with almost no separation. Box-sizing is global, so
+   the height below is the tile and the padding eats into the artwork. */
+.brand .logo {
+  height: 64px; width: auto; flex: 0 0 auto; display: block;
+  background: var(--panel); border-radius: 13px; padding: 5px;
+}
 .brand .nm { font-family: var(--display); font-size: clamp(19px, 3.4vw, 26px);
   text-transform: uppercase; letter-spacing: -.01em; line-height: 1; color: var(--paper); }
 .brand .sub { font-family: var(--type); font-size: 10px; letter-spacing: .13em;
@@ -339,7 +345,14 @@ td.dim { color: var(--muted); }
 .msg.good { border-color: var(--green); color: var(--forest); background: #E7F1E9; }
 
 @media (max-width: 640px) {
-  .brand .logo { height: 46px; }
+  .brand .logo { height: 52px; border-radius: 11px; padding: 4px; }
+  /* Side by side and half-width each. Wrapping left the division picker
+     alone on its own row, shoved right by its auto margin. */
+  .selectors { flex-wrap: nowrap; gap: 8px; }
+  .sel { flex: 1 1 0; min-width: 0; }
+  .sel.division { margin-left: 0; }
+  .sel select { width: 100%; font-size: 11.5px; padding: 11px 30px 11px 13px; }
+  .sel::after { right: 12px; }
   th, td { padding: 7px 8px; font-size: 12.5px; }
   .cards { grid-template-columns: 1fr; }
 }
