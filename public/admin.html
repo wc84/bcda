@@ -33,6 +33,9 @@
   .warnlist div { font-size: 13px; padding: 7px 10px; border-radius: 6px; background: #FBEDE8;
     border-left: 4px solid var(--bad); }
   .warnlist div.info { background: #E7F1E9; border-left-color: var(--green); }
+  /* A merge is an action the tool took, not a fault — orange, so it is loud
+     without reading as something broken. */
+  .warnlist div.merge { background: #FDF1E2; border-left-color: var(--orange); }
 
   .stats { display: flex; gap: 22px; flex-wrap: wrap; }
   .stats div { display: flex; flex-direction: column; }

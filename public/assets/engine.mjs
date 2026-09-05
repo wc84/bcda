@@ -124,23 +124,49 @@ const LEAGUES = [
   [/team/i, 'Teams'],
 ];
 
+/* Struck out of the raw cell to leave the division's own name behind.
+   The misspelling covers the "B Divison" typo the real exports carry. */
+const LEAGUE_WORDS = /\b(singles?|doubles?|teams?)\b/gi;
+const DIVISION_WORD = /\b(divisions?|divisons?|divs?)\b/gi;
+
 /**
- * "A Division - Singles" -> { division: 'A', league: 'Singles' }
- * Tolerates the "B Divison" typo present in the real exports.
+ * A single capital letter, or a proper name in its own right. Case is
+ * normalised so two exports that disagree on it ("MIXED" / "Mixed") still
+ * land in the same division rather than splitting the board in two.
+ */
+function normaliseDivision(text) {
+  const s = String(text).replace(/[\s\-–—_]+/g, ' ').trim();
+  if (!s) return '';
+  if (s.length === 1) return s.toUpperCase();
+  return s.split(' ')
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ');
+}
+
+/**
+ * "A Division - Singles" -> { division: 'A',      league: 'Singles' }
+ * "Doubles A"            -> { division: 'A',      league: 'Doubles' }
+ * "Mixed Division"       -> { division: 'Mixed',  league: ''        }
+ * "Masters"              -> { division: 'Masters', league: ''       }
+ *
+ * The division is whatever survives once the league and the word "Division"
+ * are struck out, so a name is kept whole. Reading the first letter instead
+ * collapsed Teams' Masters and Mixed into a single "M" division, which then
+ * hid the division column and the division picker for having only one value.
  */
 export function parseDivision(raw) {
   const s = String(raw ?? '').trim();
   const parts = s.split(/\s*[-–—]\s*/);
-  const left = parts[0] ?? '';
   const right = parts.slice(1).join(' - ').trim();
-
-  const letter = left.match(/\b([A-Za-z])\b/) || left.match(/^\s*([A-Za-z])/);
-  const division = letter ? letter[1].toUpperCase() : '';
 
   let league = '';
   for (const [re, name] of LEAGUES) {
     if (re.test(right) || (!right && re.test(s))) { league = name; break; }
   }
+
+  const division = normaliseDivision(
+    s.replace(LEAGUE_WORDS, ' ').replace(DIVISION_WORD, ' '),
+  );
   return { division, league: league || right, raw: s };
 }
 
@@ -223,6 +249,107 @@ const keyOf = (last, first, division) =>
 
 const titleCase = (s) => String(s ?? '').trim();
 
+/* ------------------------------------------------------- spelling repair */
+
+/**
+ * Levenshtein distance, abandoned as soon as it passes `max`. We only ever ask
+ * "is this one keystroke away", so there is no reason to score a full matrix.
+ */
+function editDistance(a, b, max = 1) {
+  if (a === b) return 0;
+  if (Math.abs(a.length - b.length) > max) return max + 1;
+
+  let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    const row = [i];
+    let best = i;
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      row[j] = Math.min(prev[j] + 1, row[j - 1] + 1, prev[j - 1] + cost);
+      if (row[j] < best) best = row[j];
+    }
+    if (best > max) return max + 1;
+    prev = row;
+  }
+  return prev[b.length];
+}
+
+/** Below this length one edit is too much of the surname to call it a typo. */
+const MERGE_MIN_SURNAME = 5;
+
+const sameText = (x, y) =>
+  String(x ?? '').trim().toLowerCase() === String(y ?? '').trim().toLowerCase();
+
+/**
+ * DartConnect lets one person be entered under two spellings of the same
+ * surname — the Summer 2026 export carries both "Destefanis" and "Desetefanis"
+ * for two of the same players. Left alone each of them scores as two half
+ * players, one with no '01 line and one with no cricket line.
+ *
+ * So pair up anyone missing from exactly one file with someone missing from
+ * the other whose surname is a single keystroke away, requiring the first
+ * name, division, team and gender to agree as corroboration. Never silent:
+ * every merge is written into the warnings the admin reads before publishing,
+ * and an ambiguous match is reported rather than guessed at.
+ */
+function reconcileSpellings(byKey, warnings) {
+  const missing = (has, lacks) => [...byKey.values()].filter((p) => p[has] && !p[lacks]);
+  const fromCricket = missing('inCricket', 'inX01');
+  const fromX01 = missing('inX01', 'inCricket');
+  if (!fromCricket.length || !fromX01.length) return;
+
+  // The spelling more of the league uses is the one the merged player keeps.
+  // A tie goes to the '01 file, which carries the fuller stat line.
+  const uses = new Map();
+  for (const p of byKey.values()) {
+    const k = p.last.toLowerCase();
+    uses.set(k, (uses.get(k) ?? 0) + 1);
+  }
+
+  const agrees = (c, x) => sameText(c.first, x.first)
+    && sameText(c.division, x.division)
+    && (!c.team || !x.team || sameText(c.team, x.team))
+    && (!c.gender || !x.gender || sameText(c.gender, x.gender))
+    && Math.max(c.last.length, x.last.length) >= MERGE_MIN_SURNAME
+    && editDistance(c.last.toLowerCase(), x.last.toLowerCase()) === 1;
+
+  const taken = new Set();
+  for (const c of fromCricket) {
+    const hits = fromX01.filter((x) => !taken.has(x.key) && agrees(c, x));
+
+    if (hits.length > 1) {
+      warnings.push({ level: 'warn', player: `${c.first} ${c.last}`, key: c.key,
+        message: `Is one letter away from more than one name in the '01 file `
+          + `(${hits.map((h) => h.last).join(', ')}) — left unmerged. Fix the spelling in DartConnect.` });
+    }
+    if (hits.length !== 1) continue;
+
+    const x = hits[0];
+    taken.add(x.key);
+
+    const keptLast = (uses.get(x.last.toLowerCase()) ?? 0) >= (uses.get(c.last.toLowerCase()) ?? 0)
+      ? x.last : c.last;
+
+    const merged = { ...c, last: keptLast, inX01: true };
+    merged.key = keyOf(keptLast, merged.first, merged.division);
+    for (const f of ['b100_139', 'b140_179', 'b180', 'raw100', 'raw140', 'hdi', 'hdo', 'tda']) {
+      merged[f] = x[f];
+    }
+    if (!merged.gender) merged.gender = x.gender;
+    if (!merged.team) merged.team = x.team;
+    if (merged.matches === null) merged.matches = x.matches;
+
+    byKey.delete(c.key);
+    byKey.delete(x.key);
+    byKey.set(merged.key, merged);
+
+    warnings.push({ level: 'merge', player: `${merged.first} ${keptLast}`, key: merged.key,
+      message: `Spelled "${c.last}" in the cricket file and "${x.last}" in the '01 file — `
+        + `same first name, team and division, one letter apart. Scored as one player, `
+        + `listed as ${keptLast}.` });
+  }
+}
+
 /**
  * Merge a cricket export and an '01 export into one board.
  * @returns {{players:Array, warnings:Array, meta:Object}}
@@ -303,6 +430,10 @@ export function buildBoard({ cricketCsv = '', x01Csv = '', roster = {} } = {}) {
     else if (cumulativeSeen === null) cumulativeSeen = true;
   }
 
+  // Before anything is scored: one person entered under two spellings is one
+  // person, not two half-scored ones.
+  reconcileSpellings(byKey, warnings);
+
   const players = [...byKey.values()];
 
   for (const p of players) {
@@ -362,12 +493,22 @@ export function buildBoard({ cricketCsv = '', x01Csv = '', roster = {} } = {}) {
   };
 }
 
-/** Sheet order: women first, then men, each descending by Total AS. */
+/**
+ * Sheet order: divisions in name order, each descending by Total AS. Players
+ * whose export carried no division sort to the end rather than to the front,
+ * where an empty string would otherwise put them.
+ */
 export function defaultOrder(a, b) {
-  const rank = (g) => (g === 'F' ? 0 : g === 'M' ? 1 : 2);
-  return rank(a.gender) - rank(b.gender)
+  return divisionOrder(a, b)
       || b.totalAS - a.totalAS
       || a.last.localeCompare(b.last);
+}
+
+/** Just the division half of the sheet order, for grouping a sorted view. */
+export function divisionOrder(a, b) {
+  const placed = (d) => (String(d ?? '').trim() ? 0 : 1);
+  return placed(a.division) - placed(b.division)
+      || String(a.division ?? '').localeCompare(String(b.division ?? ''));
 }
 
 /* --------------------------------------------------------------- records */

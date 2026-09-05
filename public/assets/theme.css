@@ -103,10 +103,19 @@ a { color: var(--green); }
   flex: 1; font-family: var(--display); font-size: clamp(13px, 2.4vw, 15px);
   letter-spacing: .05em; text-transform: uppercase; padding: 9px 6px;
   border: 0; border-radius: 8px; background: transparent; color: #CFE0D4;
-  cursor: pointer; transition: background .18s, color .18s;
+  cursor: pointer; transition: background .18s, color .18s, box-shadow .18s;
 }
-.seg button:hover { color: var(--paper); }
+/* Hover used to be a text-colour shift alone, which on the dark bar was almost
+   invisible. The plate and ring make the target unmistakable. */
+.seg button:hover:not(:disabled):not([aria-selected="true"]) {
+  background: rgba(245,236,215,.16); color: var(--paper);
+  box-shadow: inset 0 0 0 2px rgba(245,236,215,.34);
+}
 .seg button[aria-selected="true"] { background: var(--orange); color: #fff; }
+/* Darkens rather than brightens: the already-selected tab needs far less of a
+   hover cue than its neighbours, and going darker lifts the white label's
+   contrast instead of eroding it. Matches .btn.primary:hover. */
+.seg button[aria-selected="true"]:hover { background: #D96C18; }
 .seg button:focus-visible { outline: 3px solid var(--amber); outline-offset: 2px; }
 
 /* -------------------------------------------------- season / division picks */
@@ -117,8 +126,16 @@ a { color: var(--green); }
 .sel select {
   appearance: none; -webkit-appearance: none;
   font-family: var(--type); font-size: 12.5px; letter-spacing: .09em;
-  text-transform: uppercase; line-height: 1;
-  padding: 11px 38px 11px 17px; border-radius: 24px; cursor: pointer;
+  text-transform: uppercase;
+  /* Special Elite's capitals are 0.734em tall but it declares only 0.7025em of
+     ascent, so at line-height:1 the tops poke outside the content box — and a
+     select clips to that box, shaving the caps. The extra leading gives them
+     0.068em of headroom.
+     The padding then centres what is left: the .2975em of descent these
+     all-caps labels never use is handed back to the top, which is what stops
+     the text sitting high in the pill. */
+  line-height: 1.2;
+  padding: .929em 38px .623em 17px; border-radius: 24px; cursor: pointer;
   border: 2px solid var(--green); background: var(--panel); color: var(--green);
   box-shadow: var(--hard-l);
 }
@@ -206,8 +223,13 @@ a { color: var(--green); }
 .who .n { font-family: var(--display); font-size: 17px; text-transform: uppercase;
   letter-spacing: -.01em; line-height: 1.12; white-space: nowrap; overflow: hidden;
   text-overflow: ellipsis; }
+/* Team name and division stamp share this line. The team is the part that
+   gives way: it truncates, so the stamp is never the thing pushed out. */
 .who .m { font-family: var(--type); font-size: 9.5px; letter-spacing: .08em;
-  text-transform: uppercase; color: var(--muted); }
+  text-transform: uppercase; color: var(--muted);
+  display: flex; align-items: center; gap: 7px; min-width: 0; }
+.who .m .tm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.who .m .divstamp { flex: 0 0 auto; font-size: 8.5px; }
 .tot { text-align: right; flex: 0 0 auto; }
 .tot .v { font-family: var(--display); font-size: 31px; line-height: .95; color: var(--forest);
   font-variant-numeric: tabular-nums; }
@@ -247,11 +269,14 @@ a { color: var(--green); }
   overscroll-behavior-x: contain; }
 table { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 13.5px;
   font-variant-numeric: tabular-nums; }
-th, td { padding: 8px 10px; text-align: right; white-space: nowrap;
+/* 7px rather than 10px each side: across twenty columns that is 120px of width
+   back, which is what lets Total land inside the pane instead of behind a
+   sideways scroll. Tabular numerals still keep 14px between neighbours. */
+th, td { padding: 8px 7px; text-align: right; white-space: nowrap;
   border-bottom: 1px solid var(--line); }
 th:first-child, td:first-child, th.text, td.text { text-align: left; font-variant-numeric: normal; }
 tbody tr:last-child td { border-bottom: none; }
-tbody tr:nth-child(even) td { background: rgba(237,224,194,.5); }
+tbody tr.alt td { background: rgba(237,224,194,.5); }
 tbody tr:hover td { background: var(--sunk); }
 
 thead th {
@@ -261,14 +286,16 @@ thead th {
 }
 thead th:hover { background: var(--green); }
 thead th[aria-sort] { background: var(--green); color: #fff; }
-thead th .arrow { opacity: .45; margin-left: 3px; font-size: 9px; }
+/* The idle sort chevron sits in every one of twenty headers, so its inset is
+   real table width; 2px still separates it from the label. */
+thead th .arrow { opacity: .45; margin-left: 2px; font-size: 9px; }
 thead th[aria-sort] .arrow { opacity: 1; }
 thead th:focus-visible { outline: 3px solid var(--amber); outline-offset: -3px; }
 
 th.pin, td.pin { position: sticky; left: 0; z-index: 2; background: var(--panel);
   border-right: 2px solid var(--ink); }
 thead th.pin { z-index: 4; background: var(--forest); }
-tbody tr:nth-child(even) td.pin { background: #F4E9D3; }
+tbody tr.alt td.pin { background: #F4E9D3; }
 tbody tr:hover td.pin { background: var(--sunk); }
 td.pin .nm { font-weight: 700; }
 td.pin .sub { display: block; font-size: 11px; color: var(--muted); }
@@ -299,6 +326,62 @@ td.dim { color: var(--muted); }
 .legend { display: flex; gap: 15px; flex-wrap: wrap; font-family: var(--type);
   font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 .legend span { display: inline-flex; align-items: center; }
+
+/* ----------------------------------------------------------- division marks */
+
+/* One colour per division, taken from its place in the board's division list,
+   so the first is always green and the second orange whether a league letters
+   them A and B or names them Masters and Mixed. Each tone is a full set —
+   text, wash and keyline — carried on custom properties so the stamp, the card
+   heading and the table rule all pick it up from a single class. */
+/* The wash and keyline carry the hue; the text is darker than the hue it
+   belongs to because 9px type has to clear 4.5:1 on the cream, on the striped
+   row and on the band's darker ground alike. Measured, not picked by eye —
+   the lightest of these lands at 4.64:1. */
+.divtone-0 { --dv-ink: #0C6537; --dv-fill: rgba(13,107,58,.12);  --dv-edge: rgba(13,107,58,.50); }
+.divtone-1 { --dv-ink: #894614; --dv-fill: rgba(232,119,34,.18); --dv-edge: rgba(232,119,34,.70); }
+.divtone-2 { --dv-ink: #743CA0; --dv-fill: rgba(122,63,168,.13); --dv-edge: rgba(122,63,168,.55); }
+.divtone-3 { --dv-ink: #1D5A73; --dv-fill: rgba(29,90,115,.13);  --dv-edge: rgba(29,90,115,.55); }
+
+/* A stamp rather than more small grey type: a translucent wash, a hairline
+   keyline and the typewriter face, so it reads as a mark made on the paper and
+   is told apart from the team name at a glance without shouting over it.
+   Sized to sit inside the card's team line, so it stays small deliberately. */
+.divstamp {
+  display: inline-block; vertical-align: middle; white-space: nowrap;
+  font-family: var(--type); font-size: 9px; line-height: 1;
+  letter-spacing: .11em; text-transform: uppercase;
+  border-radius: 4px; border: 1px solid var(--dv-edge, rgba(13,107,58,.42));
+  color: var(--dv-ink, var(--green)); background: var(--dv-fill, rgba(13,107,58,.10));
+  /* Optical centring, measured rather than eyeballed. Special Elite reserves
+     .30em below the baseline that these all-caps labels never use, so equal
+     padding leaves the letters riding a third of an em high — the top gets
+     that third back. Letter-spacing lands after the final glyph too, dragging
+     short text left, so half of it moves from the right side to the left. */
+  padding: .45em .725em .12em .835em;
+}
+
+/* Card view: the heading that opens each division's block of cards. */
+.divband { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px;
+  margin: 8px 0 0; }
+.divband::after { content: ''; flex: 1 1 auto; height: 3px; border-radius: 2px;
+  background: var(--dv-edge, var(--line)); }
+.divband span { font-family: var(--type); font-size: 11px; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--dv-ink, var(--forest)); }
+.divband:first-child { margin-top: 0; }
+
+/* Table view: one table throughout, with a heavy rule where a division ends.
+   The label is sticky so it stays in view when a wide table scrolls sideways.
+   The wash goes on as an image so it can sit over the cream without either
+   colour having to be restated. */
+.divsplit td { background-color: var(--sunk); border-top: 4px solid var(--ink);
+  border-bottom: 2px solid var(--ink); padding: 5px 10px; text-align: left;
+  background-image: linear-gradient(var(--dv-fill, transparent), var(--dv-fill, transparent)); }
+.divsplit.first td { border-top: 0; }
+.divsplit td span { position: sticky; left: 10px; display: inline-block;
+  font-family: var(--type); font-size: 10.5px; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--dv-ink, var(--forest)); }
+tbody tr.divsplit:hover td { background-color: var(--sunk); }
 
 /* ------------------------------------------------------- shared controls */
 
@@ -351,9 +434,11 @@ td.dim { color: var(--muted); }
   .selectors { flex-wrap: nowrap; gap: 8px; }
   .sel { flex: 1 1 0; min-width: 0; }
   .sel.division { margin-left: 0; }
-  .sel select { width: 100%; font-size: 11.5px; padding: 11px 30px 11px 13px; }
+  /* Vertical padding stays in em so the optical centring above scales with the
+     smaller type; only the arrow clearance changes here. */
+  .sel select { width: 100%; font-size: 11.5px; padding-right: 30px; padding-left: 13px; }
   .sel::after { right: 12px; }
-  th, td { padding: 7px 8px; font-size: 12.5px; }
+  th, td { padding: 7px 6px; font-size: 12.5px; }
   .cards { grid-template-columns: 1fr; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
@@ -361,8 +446,12 @@ td.dim { color: var(--muted); }
 /* segmented control on a cream surface (admin) */
 .seg.light { background: var(--sunk); border: 2px solid var(--ink); box-shadow: var(--hard-l); }
 .seg.light button { color: var(--muted); }
-.seg.light button:hover { color: var(--ink); }
+.seg.light button:hover:not(:disabled):not([aria-selected="true"]) {
+  background: rgba(8,77,41,.15); color: var(--forest);
+  box-shadow: inset 0 0 0 2px rgba(8,77,41,.38);
+}
 .seg.light button[aria-selected="true"] { background: var(--green); color: var(--paper); }
+.seg.light button[aria-selected="true"]:hover { background: var(--forest); }
 
 /* ------------------------------------------------------------ powered by */
 .powered { display: flex; flex-direction: column; align-items: center; gap: 3px;

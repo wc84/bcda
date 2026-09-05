@@ -108,6 +108,24 @@ test('division parsing tolerates the "Divison" typo in the real export', () => {
   assert.equal(parseDivision('B Division - Teams').league, 'Teams');
 });
 
+/**
+ * Teams names its divisions rather than lettering them, and both names start
+ * with M. Reading the first letter collapsed them into one "M" division, which
+ * then hid the division column and the division picker for having a single value.
+ */
+test('a named division keeps its whole name', () => {
+  assert.equal(parseDivision('Mixed Division').division, 'Mixed');
+  assert.equal(parseDivision('Masters').division, 'Masters');
+  assert.equal(parseDivision('Masters Division').division, 'Masters');
+  assert.notEqual(parseDivision('Mixed Division').division, parseDivision('Masters').division);
+});
+
+test('division names are case-normalised so one league is never split in two', () => {
+  assert.equal(parseDivision('MIXED DIVISION').division, 'Mixed');
+  assert.equal(parseDivision('mixed division').division, 'Mixed');
+  assert.equal(parseDivision('a division - singles').division, 'A');
+});
+
 test('a team column is picked up whatever its casing', () => {
   const board = buildBoard({
     cricketCsv: 'Last,First,Gender,Division,Team,Matches,Marks Scored,MPR,6M,7M,8M,9M,3B,4B,5B,6B\n'
@@ -170,14 +188,26 @@ test('a roster override supplies the gender the export omitted', () => {
   assert.ok(!board.warnings.some((w) => /No gender/.test(w.message)), 'the gender warning should be gone');
 });
 
-test('the default order puts women first, then descending Total AS', () => {
+test('the default order blocks by division, then descends by Total AS', () => {
   const board = buildBoard({
     cricketCsv: 'Last,First,Gender,Division,Marks Scored,MPR,6M,7M,8M,9M,3B,4B,5B,6B\n'
-              + 'Low,Woman,F,A Division - Singles,0,1,1,0,0,0,0,0,0,0\n'
-              + 'High,Man,M,A Division - Singles,0,1,9,0,0,0,0,0,0,0\n'
-              + 'High,Woman,F,A Division - Singles,0,1,4,0,0,0,0,0,0,0\n',
+              + 'Low,Bee,F,B Division - Singles,0,1,1,0,0,0,0,0,0,0\n'
+              + 'High,Ay,M,A Division - Singles,0,1,9,0,0,0,0,0,0,0\n'
+              + 'Mid,Bee,F,B Division - Singles,0,1,4,0,0,0,0,0,0,0\n'
+              + 'Low,Ay,M,A Division - Singles,0,1,2,0,0,0,0,0,0,0\n',
   });
-  assert.deepEqual(board.players.map((p) => p.name), ['Woman High', 'Woman Low', 'Man High']);
+  assert.deepEqual(board.players.map((p) => p.name),
+    ['Ay High', 'Ay Low', 'Bee Mid', 'Bee Low'],
+    'A before B, and within each the higher total first regardless of gender');
+});
+
+test('a player with no division sorts to the end, not to the front', () => {
+  const board = buildBoard({
+    cricketCsv: 'Last,First,Gender,Division,Marks Scored,MPR,6M,7M,8M,9M,3B,4B,5B,6B\n'
+              + 'Nowhere,Guy,M,,0,1,9,0,0,0,0,0,0,0\n'
+              + 'Placed,Gal,F,A Division - Singles,0,1,1,0,0,0,0,0,0,0\n',
+  });
+  assert.deepEqual(board.players.map((p) => p.name), ['Gal Placed', 'Guy Nowhere']);
 });
 
 /* ------------------------------------------------------------------------
@@ -263,6 +293,10 @@ test('a dash where a number should be is read as blank, not zero', () => {
 const DBL_CRICKET = `${DOWNLOADS}/BCDAD_Summer_2026_all_cricket_leaderboard.csv`;
 const DBL_X01 = `${DOWNLOADS}/BCDAD_Summer_2026_all_01_leaderboard.csv`;
 const haveDoubles = existsSync(DBL_CRICKET) && existsSync(DBL_X01);
+
+const TEAM_CRICKET = `${DOWNLOADS}/bcda_Summer_2026_all_cricket_leaderboard.csv`;
+const TEAM_X01 = `${DOWNLOADS}/bcda_Summer_2026_all_01_leaderboard.csv`;
+const haveTeams = existsSync(TEAM_CRICKET) && existsSync(TEAM_X01);
 
 test('the real Summer 2026 Doubles exports build a clean board', { skip: !haveDoubles }, () => {
   const board = buildBoard({
@@ -356,4 +390,108 @@ test('Doubles A is untouched by the Singles A rule', { skip: !haveDoubles }, () 
   assert.equal(powers.scoring, 'standard');
   assert.equal(powers.totalAS, 28);
   assert.deepEqual(board.meta.eliteDivisions, []);
+});
+
+/* ------------------------------------------------------------------------
+ * One person, two spellings
+ * ---------------------------------------------------------------------- */
+
+const CRICKET_HEAD = 'Last,First,Gender,Team,Division,Matches,Marks Scored,MPR,6M,7M,8M,9M,3B,4B,5B,6B\n';
+const X01_HEAD = 'Last,First,Gender,Team,Division,Points Scored,3DA,HDI,HDO,100+,140+,180\n';
+
+test('one player entered under two spellings is scored as one player', () => {
+  const board = buildBoard({
+    cricketCsv: CRICKET_HEAD
+      + 'Desetefanis,Paul,M,Gripp with A lot of D,Mixed Division,2,18,0.9,1,0,0,0,0,0,0,0\n',
+    x01Csv: X01_HEAD
+      + 'Destefanis,Paul,M,Gripp with A lot of D,Mixed Division,1208,26.26,78,31,5,0,0\n',
+  });
+
+  assert.equal(board.players.length, 1, 'not two half-scored players');
+  const p = board.players[0];
+  assert.equal(p.last, 'Destefanis', 'the spelling the rest of the league uses wins');
+  assert.equal(p.mpr, 0.9, 'the cricket half survived the merge');
+  assert.equal(p.tda, 26.26, "the '01 half survived the merge");
+  assert.equal(p.totalAS, 6, '1 six-mark turn plus 5 turns of 100-139');
+
+  assert.ok(!board.warnings.some((w) => /Appears in the/.test(w.message)),
+    'the two orphan warnings are gone');
+  const merge = board.warnings.find((w) => w.level === 'merge');
+  assert.match(merge.message, /Desetefanis.*Destefanis/);
+});
+
+test('the majority spelling wins even when it is the cricket file that is right', () => {
+  const board = buildBoard({
+    cricketCsv: CRICKET_HEAD
+      + 'Destefanis,Paul,M,Gripp,Mixed Division,2,18,0.9,1,0,0,0,0,0,0,0\n'
+      + 'Destefanis,Dom,M,Gripp,Mixed Division,2,18,0.9,0,0,0,0,0,0,0,0\n',
+    x01Csv: X01_HEAD
+      + 'Desetefanis,Paul,M,Gripp,Mixed Division,1208,26.26,78,31,5,0,0\n'
+      + 'Destefanis,Dom,M,Gripp,Mixed Division,1075,21.36,65,38,0,0,0\n',
+  });
+  const paul = board.players.find((p) => p.first === 'Paul');
+  assert.equal(paul.last, 'Destefanis');
+  assert.equal(paul.mpr, 0.9);
+  assert.equal(paul.tda, 26.26);
+});
+
+test('a merge needs corroboration — a different team is a different person', () => {
+  const board = buildBoard({
+    cricketCsv: CRICKET_HEAD
+      + 'Smith,John,M,Flight Club,Mixed Division,2,18,0.9,1,0,0,0,0,0,0,0\n',
+    x01Csv: X01_HEAD
+      + 'Smyth,John,M,Mavericks,Mixed Division,1208,26.26,78,31,5,0,0\n',
+  });
+  assert.equal(board.players.length, 2, 'different teams, so not merged');
+  assert.ok(!board.warnings.some((w) => w.level === 'merge'));
+});
+
+test('short surnames are never merged — one edit is too much of the name', () => {
+  const board = buildBoard({
+    cricketCsv: CRICKET_HEAD
+      + 'Ho,Alex,M,Flight Club,Mixed Division,2,18,0.9,1,0,0,0,0,0,0,0\n',
+    x01Csv: X01_HEAD
+      + 'Lo,Alex,M,Flight Club,Mixed Division,1208,26.26,78,31,5,0,0\n',
+  });
+  assert.equal(board.players.length, 2);
+});
+
+test('two edits apart is a different person, not a typo', () => {
+  const board = buildBoard({
+    cricketCsv: CRICKET_HEAD
+      + 'Anderson,Kim,F,Flight Club,Mixed Division,2,18,0.9,1,0,0,0,0,0,0,0\n',
+    x01Csv: X01_HEAD
+      + 'Andersen,Kem,F,Flight Club,Mixed Division,1208,26.26,78,31,5,0,0\n',
+  });
+  assert.equal(board.players.length, 2, 'surname AND first name both differ');
+});
+
+test('an ambiguous near-miss is reported rather than guessed at', () => {
+  const board = buildBoard({
+    cricketCsv: CRICKET_HEAD
+      + 'Destefanis,Paul,M,Gripp,Mixed Division,2,18,0.9,1,0,0,0,0,0,0,0\n',
+    x01Csv: X01_HEAD
+      + 'Desstefanis,Paul,M,Gripp,Mixed Division,1208,26.26,78,31,5,0,0\n'
+      + 'Destefanie,Paul,M,Gripp,Mixed Division,1075,21.36,65,38,0,0,0\n',
+  });
+  assert.equal(board.players.length, 3, 'nothing merged');
+  const w = board.warnings.find((x) => /one letter away from more than one/.test(x.message));
+  assert.ok(w, 'the ambiguity is surfaced');
+});
+
+test('the real Summer 2026 Teams exports merge the split surnames', { skip: !haveTeams }, () => {
+  const board = buildBoard({
+    cricketCsv: readFileSync(TEAM_CRICKET, 'utf8'),
+    x01Csv: readFileSync(TEAM_X01, 'utf8'),
+  });
+  assert.equal(board.players.length, 91, '93 before the merge — Paul and Tony were doubled');
+  assert.deepEqual(board.meta.divisions, ['Masters', 'Mixed']);
+  assert.equal(board.warnings.filter((w) => w.level === 'merge').length, 2);
+  assert.ok(!board.warnings.some((w) => /Appears in the/.test(w.message)));
+
+  for (const first of ['Paul', 'Tony']) {
+    const p = board.players.find((q) => q.first === first && q.last === 'Destefanis');
+    assert.ok(p, `${first} Destefanis is on the board exactly once`);
+    assert.ok(p.inCricket && p.inX01, 'carrying both halves');
+  }
 });

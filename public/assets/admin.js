@@ -201,6 +201,10 @@ function renderPreview() {
   const { players, warnings, meta } = state.preview;
   const liveByKey = new Map((state.live?.players ?? []).map((p) => [p.key, p]));
 
+  // Same rule the scoreboard uses: colour by position in the division list, so
+  // a division wears the same colour here as it will once published.
+  const divTone = (d) => `divtone-${Math.max(0, meta.divisions.indexOf(d)) % 4}`;
+
   const badge = $('modeBadge');
   badge.textContent = meta.bandMode === 'bands'
     ? 'Scored from per-band columns'
@@ -216,9 +220,11 @@ function renderPreview() {
   stats.replaceChildren();
   const cells = [
     [players.length, 'Players'],
-    [meta.divisions.join(' + ') || '—', 'Divisions'],
+    // Naming them beats a bare count: it is where a mis-parsed division shows.
+    [meta.divisions.length, meta.divisions.join(' + ') || 'Divisions'],
     [state.live ? fresh : players.length, state.live ? 'New' : 'All new'],
     [state.live ? changed : '—', 'Changed'],
+    [warnings.filter((w) => w.level === 'merge').length, 'Merged'],
     [warnings.filter((w) => w.level === 'warn').length, 'Warnings'],
   ];
   for (const [n, l] of cells) {
@@ -231,11 +237,13 @@ function renderPreview() {
   wl.replaceChildren();
   show(wl, warnings.length > 0);
   for (const w of warnings) {
-    wl.append(el('div', w.level === 'info' ? 'info' : '', w.player ? `${w.player}: ${w.message}` : w.message));
+    // 'warn' is the plain red row; 'info' and 'merge' each carry their own class.
+    wl.append(el('div', w.level === 'warn' ? '' : w.level,
+      w.player ? `${w.player}: ${w.message}` : w.message));
   }
 
   const cols = [
-    ['Player', 'text'], ['Gender', 'text'], ['Team', 'text'], ['Div', 'text'],
+    ['Player', 'text'], ['Gender', 'text'], ['Team', 'text'], ['Division', 'text'],
     ['Cricket AS', ''], ["'01 AS", ''], ['Total AS', 'total'], ['vs live', ''],
   ];
   const head = $('pvHead');
@@ -244,13 +252,18 @@ function renderPreview() {
 
   const rows = $('pvRows');
   rows.replaceChildren();
-  for (const p of players) {
+  players.forEach((p, i) => {
     const was = liveByKey.get(p.key);
-    const tr = el('tr');
+    const tr = el('tr', i % 2 === 1 ? 'alt' : null);
     tr.append(el('td', 'text', p.name));
     tr.append(el('td', 'text', p.gender || '—'));
     tr.append(el('td', 'text', p.team || '—'));
-    tr.append(el('td', 'text', p.division || '—'));
+
+    const dv = el('td', 'text');
+    if (p.division) dv.append(el('span', `divstamp ${divTone(p.division)}`, p.division));
+    else dv.textContent = '—';
+    tr.append(dv);
+
     tr.append(el('td', null, String(p.cricketAS)));
     tr.append(el('td', null, String(p.x01AS)));
     tr.append(el('td', 'total', String(p.totalAS)));
@@ -266,7 +279,7 @@ function renderPreview() {
     }
     tr.append(diff);
     rows.append(tr);
-  }
+  });
 }
 
 /* ----------------------------------------------------------------- roster */

@@ -1,4 +1,4 @@
-import { computeRecords, defaultOrder } from './engine.mjs';
+import { computeRecords, defaultOrder, divisionOrder } from './engine.mjs';
 
 const $ = (id) => document.getElementById(id);
 const el = (tag, cls, text) => {
@@ -9,12 +9,35 @@ const el = (tag, cls, text) => {
 };
 const show = (node, on) => node.classList.toggle('hide', !on);
 
+/* ---------------------------------------------------------------- division */
+
+/** "A" is a letter and needs the noun; "Masters" already is one. */
+const divLabel = (d) => (String(d ?? '').length === 1 ? `${d} Division` : String(d ?? ''));
+
+const DIV_TONES = 4;
+
+/**
+ * A division's colour comes from its place in the board's own division list,
+ * so the first is always green and the second orange whether a league letters
+ * them A and B or names them Masters and Mixed.
+ */
+const divTone = (d) => {
+  const i = (state.board?.meta?.divisions ?? []).indexOf(d);
+  return `divtone-${(i < 0 ? 0 : i) % DIV_TONES}`;
+};
+
+/** The small stamp that marks a division apart from the team beside it. */
+const divStamp = (d) => el('span', `divstamp ${divTone(d)}`, d);
+
+/** Divisions are blocked whenever the board holds more than one of them. */
+const isGrouped = (players) => new Set(players.map((p) => p.division)).size > 1;
+
 /* ------------------------------------------------------------------ model */
 
 const COLUMNS = [
   { key: 'name',      label: 'Player',   type: 'text', pin: true, group: 'id' },
   { key: 'team',      label: 'Team',     type: 'text', optional: 'team', group: 'id' },
-  { key: 'division',  label: 'Div',      type: 'text', optional: 'division', group: 'id' },
+  { key: 'division',  label: 'Division', type: 'text', optional: 'division', group: 'id' },
   { key: 'm6',        label: '6M',       group: 'cricket', edge: true },
   { key: 'm7',        label: '7M',       group: 'cricket' },
   { key: 'm8',        label: '8M',       group: 'cricket' },
@@ -32,7 +55,7 @@ const COLUMNS = [
   { key: 'tda',       label: '3DA',      group: 'x01', dec: 2, dim: true, keep: true },
   { key: 'cricketAS', label: 'Cricket',  group: 'totals', cls: 'as', edge: true, keep: true },
   { key: 'x01AS',     label: "'01",      group: 'totals', cls: 'as', keep: true },
-  { key: 'totalAS',   label: 'Total AS', group: 'totals', cls: 'total', th: 'total', keep: true },
+  { key: 'totalAS',   label: 'Total',    group: 'totals', cls: 'total', th: 'total', keep: true },
 ];
 
 const SORTS = [
@@ -169,7 +192,7 @@ function renderChrome() {
   all.selected = state.division === 'ALL';
   ds.append(all);
   for (const d of divs) {
-    const o = el('option', null, `${d} Division`);
+    const o = el('option', null, divLabel(d));
     o.value = d;
     o.selected = state.division === d;
     ds.append(o);
@@ -210,11 +233,11 @@ function renderTiles(players) {
 
 /* ----------------------------------------------------------------- sorting */
 
-function sortPlayers(players) {
-  if (!state.sort) return [...players].sort(defaultOrder);
+function comparator() {
+  if (!state.sort) return defaultOrder;
   const col = COLUMNS.find((c) => c.key === state.sort);
   const dir = state.dir === 'asc' ? 1 : -1;
-  return [...players].sort((a, b) => {
+  return (a, b) => {
     const x = a[state.sort];
     const y = b[state.sort];
     if (col && col.type === 'text') {
@@ -226,7 +249,17 @@ function sortPlayers(players) {
     if (xa === null) return 1;
     if (ya === null) return -1;
     return (xa - ya) * dir || a.last.localeCompare(b.last);
-  });
+  };
+}
+
+/**
+ * Divisions hold as blocks whatever the sort, so a rank never crosses one.
+ * Sorting by MPR reorders players inside Masters and inside Mixed, and never
+ * ranks a Masters player against a Mixed one.
+ */
+function sortPlayers(players, grouped) {
+  const cmp = comparator();
+  return [...players].sort(grouped ? (a, b) => divisionOrder(a, b) || cmp(a, b) : cmp);
 }
 
 /** Columns worth showing: drops all-zero stat columns and unused text columns. */
@@ -262,22 +295,19 @@ function renderChips() {
   }
 }
 
-function renderCards(players) {
+function renderCards(players, grouped) {
   const box = $('cards');
   box.replaceChildren();
-  const sorted = sortPlayers(players);
-  const grouped = !state.sort;   // sheet order keeps the women / men blocks
+  const sorted = sortPlayers(players, grouped);
 
   let seen = null;
   let rank = 0;
   for (const p of sorted) {
-    if (grouped && p.gender !== seen) {
-      seen = p.gender;
+    if (grouped && p.division !== seen) {
+      seen = p.division;
       rank = 0;
-      const h = el('div', 'mlab');
-      h.style.gridColumn = '1 / -1';
-      h.style.margin = '6px 0 0';
-      h.textContent = p.gender === 'F' ? 'Women' : p.gender === 'M' ? 'Men' : 'Gender not recorded';
+      const h = el('div', `divband ${divTone(p.division)}`);
+      h.append(el('span', null, p.division ? divLabel(p.division) : 'Division not recorded'));
       box.append(h);
     }
     rank += 1;
@@ -291,8 +321,13 @@ function renderCards(players) {
     top.append(el('div', 'rank', String(rank)));
     const who = el('div', 'who');
     who.append(el('div', 'n', p.name));
-    who.append(el('div', 'm', [p.team || null, p.division ? `${p.division} Div` : null]
-      .filter(Boolean).join(' · ') || '—'));
+    // Team as plain text, division as a stamp beside it: two different kinds of
+    // fact, so they should not read as one run of the same small grey type.
+    const meta = el('div', 'm');
+    if (p.team) meta.append(el('span', 'tm', p.team));
+    if (p.division) meta.append(divStamp(p.division));
+    if (!p.team && !p.division) meta.append(el('span', 'tm', '—'));
+    who.append(meta);
     top.append(who);
     const tot = el('div', 'tot');
     tot.append(el('div', 'v', String(p.totalAS)));
@@ -353,7 +388,21 @@ function renderGroupTabs() {
   }
 }
 
-function renderTable(players) {
+/**
+ * The thick rule that splits one division from the next. The label rides a
+ * sticky span rather than the cell, so it stays put when a wide table is
+ * scrolled sideways and never scrolls out from under its own block.
+ */
+function divisionBand(name, span, first) {
+  const tr = el('tr', `divsplit ${divTone(name)}${first ? ' first' : ''}`);
+  const td = el('td');
+  td.colSpan = span;
+  td.append(el('span', null, name ? divLabel(name) : 'Division not recorded'));
+  tr.append(td);
+  return tr;
+}
+
+function renderTable(players, grouped) {
   let cols = visibleColumns(players);
   if (NARROW.matches) cols = cols.filter((c) => c.group === 'id' || c.group === state.group);
 
@@ -392,11 +441,22 @@ function renderTable(players) {
 
   const body = $('rows');
   body.replaceChildren();
-  const sorted = sortPlayers(players);
+  const sorted = sortPlayers(players, grouped);
 
-  sorted.forEach((p, i) => {
-    const tr = el('tr');
-    tr.append(el('td', 'r', String(i + 1)));
+  let seen = null;
+  let rank = 0;
+  for (const p of sorted) {
+    if (grouped && p.division !== seen) {
+      body.append(divisionBand(p.division, cols.length + 1, seen === null));
+      seen = p.division;
+      rank = 0;
+    }
+    rank += 1;
+
+    // Striping is set here rather than with :nth-child, which the band rows
+    // would otherwise knock out of step at every division boundary.
+    const tr = el('tr', rank % 2 === 0 ? 'alt' : null);
+    tr.append(el('td', 'r', String(rank)));
     for (const c of cols) {
       const td = el('td', [c.pin ? 'pin' : '', c.type === 'text' ? 'text' : '', c.cls || '',
         c.dim ? 'dim' : '', c.edge && !NARROW.matches ? 'grp' : ''].filter(Boolean).join(' '));
@@ -404,6 +464,9 @@ function renderTable(players) {
         const dot = el('i', `gdot ${p.gender === 'F' ? 'F' : p.gender === 'M' ? 'M' : 'X'}`);
         dot.title = p.gender === 'F' ? 'Women' : p.gender === 'M' ? 'Men' : 'Not recorded';
         td.append(dot, el('span', 'nm', p.name));
+      } else if (c.key === 'division') {
+        if (p.division) td.append(divStamp(p.division));
+        else { td.textContent = '—'; td.classList.add('dim'); }
       } else {
         const v = p[c.key];
         td.textContent = num(v, c.dec);
@@ -412,7 +475,7 @@ function renderTable(players) {
       tr.append(td);
     }
     body.append(tr);
-  });
+  }
 }
 
 /* ---------------------------------------------------------------- compose */
@@ -451,8 +514,9 @@ function render() {
   }
   show($('empty'), false);
 
-  if (cards) { renderChips(); renderCards(players); }
-  else { renderGroupTabs(); renderTable(players); }
+  const grouped = isGrouped(players);
+  if (cards) { renderChips(); renderCards(players, grouped); }
+  else { renderGroupTabs(); renderTable(players, grouped); }
 
   writeHash();
 }
