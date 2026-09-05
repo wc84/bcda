@@ -72,6 +72,7 @@ const state = {
   season: null, league: null, division: 'ALL',
   view: 'cards', group: 'totals',
   sort: null, dir: 'desc',
+  women: false,
 };
 
 try {
@@ -89,6 +90,7 @@ function readHash() {
   if (p.get('view') === 'cards' || p.get('view') === 'table') state.view = p.get('view');
   if (p.get('sort')) state.sort = p.get('sort');
   if (p.get('dir')) state.dir = p.get('dir') === 'asc' ? 'asc' : 'desc';
+  if (p.get('women') === '1') state.women = true;
 }
 
 function writeHash() {
@@ -96,6 +98,7 @@ function writeHash() {
   if (state.season) p.set('season', state.season);
   if (state.league) p.set('league', state.league);
   if (state.division !== 'ALL') p.set('div', state.division);
+  if (state.women) p.set('women', '1');
   p.set('view', state.view);
   if (state.sort) { p.set('sort', state.sort); p.set('dir', state.dir); }
   history.replaceState(null, '', `#${p}`);
@@ -219,6 +222,8 @@ function renderTiles(players) {
   ];
 
   for (const [cls, gender, kind, label, icon] of spec) {
+    // Filtered to women, the men's tiles could only ever read "not thrown yet".
+    if (state.women && gender !== 'F') continue;
     const hit = rec[gender] && rec[gender][kind];
     const tile = el('div', `tile ${cls}${hit ? '' : ' empty'}`);
     const lab = el('span', 'l');
@@ -486,13 +491,29 @@ function setView(view) {
   render();
 }
 
+/**
+ * The women-only filter reflects itself, and goes dark on a board that has no
+ * women on it at all rather than offering to empty the page.
+ */
+function renderWomenToggle() {
+  const b = $('womenOnly');
+  const any = (state.board?.players ?? []).some((p) => p.gender === 'F');
+  b.disabled = !any;
+  b.setAttribute('aria-pressed', String(state.women));
+  b.title = !any ? 'No women’s results on this board'
+    : state.women ? 'Showing women only — click to show everyone'
+      : 'Show women only';
+}
+
 function render() {
   if (!state.board) return;
   const players = state.board.players.filter(
-    (p) => state.division === 'ALL' || p.division === state.division,
+    (p) => (state.division === 'ALL' || p.division === state.division)
+        && (!state.women || p.gender === 'F'),
   );
 
   renderChrome();
+  renderWomenToggle();
   renderTiles(players);
   renderScoreNote(players);
 
@@ -509,7 +530,9 @@ function render() {
     : 'Tap any column to sort';
 
   if (!players.length) {
-    showMessage('Nothing here yet', 'No players published for this league and division.');
+    showMessage('Nothing here yet', state.women
+      ? 'No women’s results for this league and division yet. Turn the Women filter off to see everyone.'
+      : 'No players published for this league and division.');
     return;
   }
   show($('empty'), false);
@@ -565,11 +588,17 @@ async function load() {
   if (state.division !== 'ALL' && !state.board.meta.divisions.includes(state.division)) {
     state.division = 'ALL';
   }
+  // Carrying the filter across to a board with no women would show an empty
+  // page and read as a broken link rather than as a filter.
+  if (state.women && !state.board.players.some((p) => p.gender === 'F')) {
+    state.women = false;
+  }
   render();
 }
 
 $('viewCards').addEventListener('click', () => setView('cards'));
 $('viewTable').addEventListener('click', () => setView('table'));
+$('womenOnly').addEventListener('click', () => { state.women = !state.women; render(); });
 NARROW.addEventListener('change', () => { if (state.board) render(); });
 
 readHash();

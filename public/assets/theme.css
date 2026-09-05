@@ -195,8 +195,37 @@ a { color: var(--green); }
 .vtoggle button svg { width: 14px; height: 14px; }
 .vtoggle button:focus-visible { outline: 3px solid var(--amber); outline-offset: 3px; }
 
+/* Women-only filter. Shares the .gtabs button face because on a phone it sits
+   directly beside those tabs; on a desktop it is the left-hand control in the
+   bar. Pressed, it takes the same violet the table's gender dot already uses
+   for women, so the two read as one piece of colour language. */
+.wfilter {
+  flex: 0 0 auto; display: inline-flex; align-items: center; gap: 7px;
+  font-family: var(--display); font-size: 12px; letter-spacing: .06em;
+  text-transform: uppercase; padding: 7px 13px;
+  border: 2px solid var(--ink); border-radius: 8px;
+  background: var(--panel); color: var(--ink);
+  box-shadow: var(--hard-l); cursor: pointer;
+  transition: background .18s, color .18s;
+}
+.wfilter svg { width: 15px; height: 15px; flex: 0 0 auto; }
+/* Matches the height of the Cricket / '01 tabs it shares a row with on a phone,
+   rather than being the one undersized target in the group. */
+.wfilter { min-height: 36px; }
+.wfilter:hover:not(:disabled) { background: var(--sunk); }
+.wfilter[aria-pressed="true"] { background: #6E3796; color: var(--paper); }
+.wfilter[aria-pressed="true"]:hover { background: #5C2C7E; }
+.wfilter:focus-visible { outline: 3px solid var(--amber); outline-offset: 2px; }
+.wfilter:disabled { opacity: .4; cursor: not-allowed; box-shadow: none; }
+
 /* sort chips */
-.chips { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+/* flex-basis 0 rather than auto, overriding .grow. A wrapping flex container
+   assigns items to lines by their base size before it shrinks anything, so at
+   basis auto the chips' full content width pushed them onto a line of their
+   own and the bar ran to three rows on a phone. min-width:0 alone cannot fix
+   that; it only governs shrinking once a line is already chosen. */
+.chips { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none;
+  padding-bottom: 2px; min-width: 0; flex: 1 1 0; }
 .chips::-webkit-scrollbar { display: none; }
 .chips button {
   flex: 0 0 auto; font-family: var(--type); font-size: 10.5px; letter-spacing: .07em;
@@ -439,6 +468,11 @@ tbody tr.divsplit:hover td { background-color: var(--sunk); }
   .sel select { width: 100%; font-size: 11.5px; padding-right: 30px; padding-left: 13px; }
   .sel::after { right: 12px; }
   th, td { padding: 7px 6px; font-size: 12.5px; }
+  /* Icon only beside the Cricket / '01 tabs; the aria-label carries the name. */
+  .wfilter { padding: 7px 10px; }
+  .wfilter span { display: none; }
+  /* Buys back the width the filter takes, so the view bar stays one row. */
+  .vtoggle button { min-width: 0; padding: 8px 11px; }
   .cards { grid-template-columns: 1fr; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }

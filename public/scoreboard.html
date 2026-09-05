@@ -42,6 +42,16 @@
   <p class="scorenote hide" id="scoreNote"></p>
 
   <div class="viewbar">
+    <!-- First in the bar, so it is the left-hand control on a desktop and lands
+         beside the Cricket / '01 tabs on a phone. -->
+    <button class="wfilter" type="button" id="womenOnly"
+            aria-pressed="false" aria-label="Show women only">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="8.5" r="5.5"/>
+        <path d="M12 14v7M8.5 18h7"/>
+      </svg><span>Women</span>
+    </button>
     <div class="chips grow" id="chips"></div>
     <div class="gtabs hide" id="gtabs"></div>
     <div class="vtoggle" id="vtoggle" data-view="cards" role="group" aria-label="Layout">
