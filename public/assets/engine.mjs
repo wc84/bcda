@@ -332,7 +332,7 @@ function reconcileSpellings(byKey, warnings) {
 
     const merged = { ...c, last: keptLast, inX01: true };
     merged.key = keyOf(keptLast, merged.first, merged.division);
-    for (const f of ['b100_139', 'b140_179', 'b180', 'raw100', 'raw140', 'hdi', 'hdo', 'tda']) {
+    for (const f of ['b100_139', 'b140_179', 'b180', 'raw100', 'raw140', 'hdit', 'hdo', 'tda']) {
       merged[f] = x[f];
     }
     if (!merged.gender) merged.gender = x.gender;
@@ -379,7 +379,7 @@ export function buildBoard({ cricketCsv = '', x01Csv = '', roster = {} } = {}) {
         key: k, last, first, division, league,
         gender: '', team: '',
         m6: 0, m7: 0, m8: 0, m9: 0, b3: 0, b4: 0, b5: 0, b6: 0,
-        mpr: null, tda: null, hdi: null, hdo: null,
+        mpr: null, tda: null, hdit: null, hdo: null,
         b100_139: 0, b140_179: 0, b180: 0, raw100: 0, raw140: 0,
         cricketAS: 0, x01AS: 0, totalAS: 0,
         matches: null, legs: null,
@@ -420,7 +420,7 @@ export function buildBoard({ cricketCsv = '', x01Csv = '', roster = {} } = {}) {
     p.b180 = bands.b180;
     p.raw100 = bands.raw100;
     p.raw140 = bands.raw140;
-    p.hdi = num(col(rec, 'HDI'));
+    p.hdit = num(col(rec, 'HDIT'));
     p.hdo = num(col(rec, 'HDO'));
     p.tda = num(col(rec, '3DA'));
     if (p.matches === null) p.matches = num(col(rec, 'Matches'));
@@ -523,10 +523,10 @@ export function computeRecords(players) {
       if (!eligible.length) return null;
       return eligible.reduce((a, b) => (b[field] > a[field] ? b : a));
     };
-    const hi = best('hdi');
+    const hi = best('hdit');
     const ho = best('hdo');
     out[gender] = {
-      in: hi ? { name: hi.name, value: hi.hdi, team: hi.team } : null,
+      in: hi ? { name: hi.name, value: hi.hdit, team: hi.team } : null,
       out: ho ? { name: ho.name, value: ho.hdo, team: ho.team } : null,
     };
   }

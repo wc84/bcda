@@ -106,7 +106,7 @@ These all occur in the real exports, and none of them is guessed at silently:
 
 - A player in one file but not the other — warned, never scored as a silent zero.
 - A blank `Gender` — flagged, and set from the roster rather than assumed.
-- A blank `HDI` or `HDO` — excluded from the record tiles instead of sorting as 0.
+- A blank `HDIT` or `HDO` — excluded from the record tiles instead of sorting as 0.
 - `B Divison` — the typo in the live export is normalised to division B.
 - A file dropped into the wrong slot — rejected by header signature, both in the browser
   and again on the server.

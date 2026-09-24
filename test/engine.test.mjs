@@ -12,7 +12,7 @@ import {
  * If a change to the engine cannot reproduce this board, the change is wrong.
  * ---------------------------------------------------------------------- */
 const DOUBLES_A = [
-  // name,                 6M 7M 8M 9M  3B 4B 5B 6B  hdi   hdo   crAS
+  // name,                 6M 7M 8M 9M  3B 4B 5B 6B  hdit  hdo   crAS
   ['Trish Boud',            3, 1, 0, 0,  4, 0, 0, 1,   41,   16,   13],
   ['Ally Heventhal',        2, 0, 0, 0,  0, 0, 0, 0,   10,   32,    2],
   ['Bob Curtis',            1, 1, 0, 0,  2, 2, 0, 0,   45,   41,    9],
@@ -141,10 +141,10 @@ test('a team column is picked up whatever its casing', () => {
  * ---------------------------------------------------------------------- */
 
 test('a blank high-in is excluded from the record, not treated as zero', () => {
-  const players = DOUBLES_A.map(([name, m6, m7, m8, m9, b3, b4, b5, b6, hdi, hdo]) => ({
+  const players = DOUBLES_A.map(([name, m6, m7, m8, m9, b3, b4, b5, b6, hdit, hdo]) => ({
     name,
     gender: ['Trish Boud', 'Ally Heventhal'].includes(name) ? 'F' : 'M',
-    hdi, hdo, team: '',
+    hdit, hdo, team: '',
   }));
   const rec = computeRecords(players);
   assert.equal(rec.F.in.name, 'Trish Boud');
@@ -154,14 +154,25 @@ test('a blank high-in is excluded from the record, not treated as zero', () => {
   assert.equal(rec.M.in.name, 'Jeff Raschdorf');
   assert.equal(rec.M.in.value, 160);
   assert.equal(rec.M.out.name, 'Larry Holland');
-  assert.equal(rec.M.out.value, 124, 'Larry has no HDI at all and must still win high out');
+  assert.equal(rec.M.out.value, 124, 'Larry has no HDIT at all and must still win high out');
+});
+
+// The export carries HDIT and HDI side by side and they disagree — the board
+// wants HDIT. Brian Verme's real Summer 2026 row: HDIT 88, HDI 22.
+test('high-in is read from HDIT, not from the HDI column sitting beside it', () => {
+  const board = buildBoard({
+    x01Csv: 'Last,First,Gender,Division,Points Scored,3DA,HTurn,HSI,HDIT,HDI,HDO,100+,140+,180\n'
+          + 'Verme,Brian,M,A Division - Singles,1889,29.21,100,52,88,22,58,1,0,0\n',
+  });
+  assert.equal(board.players[0].hdit, 88, 'reading HDI here would give 22');
+  assert.equal(computeRecords(board.players).M.in.value, 88, 'the record tile follows HDIT too');
 });
 
 test('a player missing from one file is warned about, never silently zeroed', () => {
   const board = buildBoard({
     cricketCsv: 'Last,First,Gender,Division,Matches,Marks Scored,MPR,6M,7M,8M,9M,3B,4B,5B,6B\n'
               + 'Nance,Bear,M,A Division - Singles,16,3923,2.75,26,34,0,5,28,2,1,0\n',
-    x01Csv: 'Last,First,Gender,Division,Matches,Points Scored,3DA,HDI,HDO,100+,140+,180\n'
+    x01Csv: 'Last,First,Gender,Division,Matches,Points Scored,3DA,HDIT,HDO,100+,140+,180\n'
           + 'Zebrowski,Chuck,M,A Division - Singles,16,68265,48.73,170,112,112,26,2\n',
   });
   const messages = board.warnings.map((w) => w.message).join(' | ');
@@ -171,7 +182,7 @@ test('a player missing from one file is warned about, never silently zeroed', ()
 
 test('a missing gender is reported rather than guessed', () => {
   const board = buildBoard({
-    x01Csv: 'Last,First,Gender,Division,Points Scored,3DA,HDI,HDO,100+,140+,180\n'
+    x01Csv: 'Last,First,Gender,Division,Points Scored,3DA,HDIT,HDO,100+,140+,180\n'
           + 'Baum,Aspen,,B Divison - Singles,46203,32.61,105,90,25,2,0\n',
   });
   assert.equal(board.players[0].gender, '');
@@ -180,7 +191,7 @@ test('a missing gender is reported rather than guessed', () => {
 
 test('a roster override supplies the gender the export omitted', () => {
   const board = buildBoard({
-    x01Csv: 'Last,First,Gender,Division,Points Scored,3DA,HDI,HDO,100+,140+,180\n'
+    x01Csv: 'Last,First,Gender,Division,Points Scored,3DA,HDIT,HDO,100+,140+,180\n'
           + 'Baum,Aspen,,B Divison - Singles,46203,32.61,105,90,25,2,0\n',
     roster: { 'baum|aspen|b': { gender: 'F' } },
   });
@@ -249,6 +260,7 @@ test('the real Winter/Spring 2026 Singles exports build a clean board', { skip: 
   assert.equal(records.M.in.value, 170);
   assert.equal(records.M.out.value, 164);
   assert.equal(records.F.in.name, 'Cris Campomezzi');
+  assert.equal(records.F.in.value, 116, 'her HDIT; the HDI column beside it reads 100');
 });
 
 /* ------------------------------------------------------------------------
@@ -269,7 +281,7 @@ test('a fully quoted export with a Team column parses', () => {
     cricketCsv: `"Last","First","Gender","Team","Division","Marks Scored","MPR","6M","7M","8M","9M","3B","4B","5B","6B"
 "Boud","Trish","F","Straight Trippin","Doubles A","264","2.36","3","1","0","0","4","0","0","1"
 `,
-    x01Csv: `"Last","First","Gender","Team","Division","Points Scored","3DA","HDI","HDO","100+","140+","180","T00_19","T20_39","T40_59","T60_79"
+    x01Csv: `"Last","First","Gender","Team","Division","Points Scored","3DA","HDIT","HDO","100+","140+","180","T00_19","T20_39","T40_59","T60_79"
 "Boud","Trish","F","Straight Trippin","Doubles A","4268","44.61","41","49","8","3","0","1","4","3","0"
 `,
   });
@@ -397,7 +409,7 @@ test('Doubles A is untouched by the Singles A rule', { skip: !haveDoubles }, () 
  * ---------------------------------------------------------------------- */
 
 const CRICKET_HEAD = 'Last,First,Gender,Team,Division,Matches,Marks Scored,MPR,6M,7M,8M,9M,3B,4B,5B,6B\n';
-const X01_HEAD = 'Last,First,Gender,Team,Division,Points Scored,3DA,HDI,HDO,100+,140+,180\n';
+const X01_HEAD = 'Last,First,Gender,Team,Division,Points Scored,3DA,HDIT,HDO,100+,140+,180\n';
 
 test('one player entered under two spellings is scored as one player', () => {
   const board = buildBoard({

@@ -47,7 +47,7 @@ const COLUMNS = [
   { key: 'b5',        label: '5B',       group: 'cricket' },
   { key: 'b6',        label: '6B',       group: 'cricket' },
   { key: 'mpr',       label: 'MPR',      group: 'cricket', dec: 2, dim: true, keep: true },
-  { key: 'hdi',       label: 'HDI',      group: 'x01', edge: true, keep: true },
+  { key: 'hdit',      label: 'HDIT',     group: 'x01', edge: true, keep: true },
   { key: 'hdo',       label: 'HDO',      group: 'x01', keep: true },
   { key: 'b100_139',  label: '100+',     group: 'x01', hint: 'Turns of 100-139' },
   { key: 'b140_179',  label: '140+',     group: 'x01', hint: 'Turns of 140-179' },
@@ -363,7 +363,7 @@ function renderCards(players, grouped) {
     block('Cricket marks & corks', [['6M', p.m6], ['7M', p.m7], ['8M', p.m8], ['9M', p.m9],
       ['3B', p.b3], ['4B', p.b4], ['5B', p.b5], ['6B', p.b6]]);
     block("'01 scoring", [['100+', p.b100_139], ['140+', p.b140_179], ['180', p.b180],
-      ['High in', num(p.hdi)], ['High out', num(p.hdo)], ['3DA', num(p.tda, 2)],
+      ['High in', num(p.hdit)], ['High out', num(p.hdo)], ['3DA', num(p.tda, 2)],
       ['Cricket AS', p.cricketAS], ["'01 AS", p.x01AS]]);
     card.append(more);
 
